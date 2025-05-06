@@ -1,6 +1,7 @@
-
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
@@ -8,10 +9,11 @@ import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 import java.sql.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 public class POS {
 
@@ -23,6 +25,9 @@ public class POS {
     private JPanel mainPanel;
     private JComboBox<String> categoryDropdown;
     private JSpinner dateFromSpinner, dateToSpinner;
+    private JPopupMenu searchPopupMenu; // For search results popup
+    private JList<String> searchSuggestionList; // JList for suggestions
+    private DefaultListModel<String> searchListModel; // Model for JList
 
     private static final String DB_URL = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
 
@@ -63,6 +68,121 @@ public class POS {
         JTextField txtItemTotal = createModernTextField();
         txtItemTotal.setEditable(false);
         txtItemTotal.setBackground(new Color(200, 200, 200, 180));
+
+
+        // Initialize the search popup menu with a JList for product name search
+        searchListModel = new DefaultListModel<>();
+        searchSuggestionList = new JList<>(searchListModel);
+        searchSuggestionList.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        searchSuggestionList.setBackground(new Color(255, 255, 255, 220));
+        searchSuggestionList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        searchSuggestionList.setVisibleRowCount(5); // Limit visible rows to avoid clutter
+        JScrollPane listScrollPane = new JScrollPane(searchSuggestionList);
+        listScrollPane.setPreferredSize(new Dimension(300, 150));
+
+        searchPopupMenu = new JPopupMenu();
+        searchPopupMenu.add(listScrollPane);
+
+        // Add KeyListener to txtProductName for live search
+        txtProductName.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                String searchText = txtProductName.getText().trim();
+                if (!searchText.isEmpty()) {
+                    updateSearchSuggestions(searchText);
+                    if (searchListModel.getSize() > 0) {
+                        // Only show popup if it's not already visible to prevent refresh loop
+                        if (!searchPopupMenu.isVisible()) {
+                            searchPopupMenu.show(txtProductName, 0, txtProductName.getHeight());
+                            // Ensure the text field retains focus after showing popup
+                            txtProductName.requestFocusInWindow();
+                        }
+                    } else {
+                        searchPopupMenu.setVisible(false);
+                    }
+                } else {
+                    searchPopupMenu.setVisible(false);
+                    searchListModel.clear();
+                }
+            }
+        });
+
+
+        // Add keyboard navigation for JList (up/down arrows and Enter to select)
+        txtProductName.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (searchPopupMenu.isVisible()) {
+                    int selectedIndex = searchSuggestionList.getSelectedIndex();
+                    switch (e.getKeyCode()) {
+                        case KeyEvent.VK_DOWN:
+                            if (selectedIndex < searchListModel.getSize() - 1) {
+                                searchSuggestionList.setSelectedIndex(selectedIndex + 1);
+                            }
+                            e.consume();
+                            break;
+                        case KeyEvent.VK_UP:
+                            if (selectedIndex > 0) {
+                                searchSuggestionList.setSelectedIndex(selectedIndex - 1);
+                            }
+                            e.consume();
+                            break;
+                        case KeyEvent.VK_ENTER:
+                            if (selectedIndex >= 0) {
+                                String selectedItem = searchSuggestionList.getSelectedValue();
+                                selectProductFromSuggestion(selectedItem);
+                                searchPopupMenu.setVisible(false);
+                            }
+                            e.consume();
+                            break;
+                        case KeyEvent.VK_ESCAPE:
+                            searchPopupMenu.setVisible(false);
+                            e.consume();
+                            break;
+                    }
+                }
+            }
+        });
+
+        // Add MouseListener to JList for clicking suggestions
+        searchSuggestionList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    String selectedItem = searchSuggestionList.getSelectedValue();
+                    if (selectedItem != null) {
+                        selectProductFromSuggestion(selectedItem);
+                        searchPopupMenu.setVisible(false);
+                    }
+                }
+            }
+        });
+
+
+
+        // Add a PopupMenuListener to prevent hiding when interacting with the popup
+        searchPopupMenu.addPopupMenuListener(new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                // No action needed
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                // Prevent immediate hiding unless explicitly requested
+                if (txtProductName.hasFocus()) {
+                    String searchText = txtProductName.getText().trim();
+                    if (!searchText.isEmpty() && searchListModel.getSize() > 0) {
+                        searchPopupMenu.show(txtProductName, 0, txtProductName.getHeight());
+                    }
+                }
+            }
+
+            @Override
+            public void popupMenuCanceled(PopupMenuEvent e) {
+                // No action needed
+            }
+        });
 
         JButton btnAdd = createModernButton("Add", new Color(76, 175, 80));
         JButton btnPrint = createModernButton("Print", new Color(33, 150, 243));
@@ -113,23 +233,12 @@ public class POS {
                 spinnerQty.setValue(0);
                 categoryDropdown.setSelectedIndex(0);
 
+                
+
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(mainPanel, "Invalid price input.");
             }
         });
-
-        categoryDropdown = new JComboBox<>();
-        categoryDropdown.addItem("Select Category");
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT DISTINCT Category FROM Item")) {
-            while (rs.next()) {
-                categoryDropdown.addItem(rs.getString("Category"));
-            }
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-        styleComboBox(categoryDropdown);
 
         btnPrint.addActionListener(e -> {
             if (tableModel.getRowCount() == 0) {
@@ -204,6 +313,19 @@ public class POS {
             txtTotal.setText("0.00");
         });
 
+        categoryDropdown = new JComboBox<>();
+        categoryDropdown.addItem("Select Category");
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT DISTINCT Category FROM Item")) {
+            while (rs.next()) {
+                categoryDropdown.addItem(rs.getString("Category"));
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        styleComboBox(categoryDropdown);
+
         inputPanel.add(createModernLabel("Product Code"));
         inputPanel.add(createModernLabel("Product Name"));
         inputPanel.add(createModernLabel("Category"));
@@ -229,7 +351,7 @@ public class POS {
                         ps.setString(1, code);
                         ResultSet rs = ps.executeQuery();
                         if (rs.next()) {
-                            txtProductName.setText(rs.getString("Product_Name"));
+                            txtProductName.setText(rs.getString("Model"));
                             txtPrice.setText(String.format("%.2f", rs.getDouble("Unit_Price")));
                             String categoryFromDB = rs.getString("Category");
                             categoryDropdown.setSelectedItem(categoryFromDB);
@@ -316,7 +438,8 @@ public class POS {
                 return false;
             }
         };
-        historyTable = styleTable(new JTable(historyTableModel));
+        historyTable =
+                styleTable(new JTable(historyTableModel));
         historyTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         historyTable.setRowHeight(25);
 
@@ -716,5 +839,72 @@ public class POS {
 
     public JPanel getMainPanel() {
         return mainPanel;
+    }
+
+    private void updateSearchSuggestions(String searchText) {
+        searchListModel.clear();
+        List<Product> matchingProducts = searchProducts(searchText);
+
+        if (!matchingProducts.isEmpty()) {
+            // Sort products alphabetically by model name
+            matchingProducts.sort((p1, p2) -> p1.model.compareToIgnoreCase(p2.model));
+            for (Product product : matchingProducts) {
+                searchListModel.addElement(product.model + " (ID: " + product.id + ")");
+            }
+        }
+    }
+
+    private void selectProductFromSuggestion(String selectedItem) {
+        if (selectedItem == null || selectedItem.isEmpty()) return;
+
+        // Extract model or search for the product in the database if needed
+        List<Product> products = searchProducts(selectedItem.split(" \\(ID: ")[0]);
+        for (Product product : products) {
+            if ((product.model + " (ID: " + product.id + ")").equals(selectedItem)) {
+                txtProductName.setText(product.model);
+                txtProductCode.setText(product.id);
+                categoryDropdown.setSelectedItem(product.category);
+                txtPrice.setText(String.format("%.2f", product.price));
+                break;
+            }
+        }
+    }
+
+
+    private List<Product> searchProducts(String searchText) {
+        List<Product> products = new ArrayList<>();
+        String query = "SELECT ID, Model, Category, Unit_Price FROM Item WHERE Model LIKE ?";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, "%" + searchText + "%");
+            ResultSet rs = ps.executeQuery();
+            int count = 0;
+            while (rs.next() && count < 10) { // Limit to 10 results to avoid clutter
+                String id = rs.getString("ID");
+                String model = rs.getString("Model");
+                String category = rs.getString("Category");
+                double price = rs.getDouble("Unit_Price");
+                products.add(new Product(id, model, category, price));
+                count++;
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(mainPanel, "Error searching products: " + ex.getMessage(),
+                    "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return products;
+    }
+
+    private static class Product {
+        String id;
+        String model;
+        String category;
+        double price;
+
+        Product(String id, String model, String category, double price) {
+            this.id = id;
+            this.model = model;
+            this.category = category;
+            this.price = price;
+        }
     }
 }
