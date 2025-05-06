@@ -217,7 +217,7 @@ public class InventoryManagement {
 
     private void connectToDatabase() {
         try {
-            String url = "jdbc:ucanaccess://C:/Files/bluedot/bluedotDatabase.accdb";
+            String url = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
             conn = DriverManager.getConnection(url);
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(mainPanel, "Database connection failed!", "Error", JOptionPane.ERROR_MESSAGE);

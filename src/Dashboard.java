@@ -30,7 +30,7 @@ public class Dashboard {
 
     private void connectToDatabase() {
         try {
-            String url = "jdbc:ucanaccess://C:/Files/bluedot/bluedotDatabase.accdb";
+            String url = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
             conn = DriverManager.getConnection(url);
             System.out.println("Database connected successfully!");
         } catch (SQLException e) {
