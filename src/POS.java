@@ -21,7 +21,7 @@ public class POS {
     private JPanel mainPanel;
     private JComboBox<String> categoryDropdown;
 
-    private static final String DB_URL = "jdbc:ucanaccess://C:/Files/bluedot/bluedotDatabase.accdb";
+    private static final String DB_URL = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
 
     public POS() {
         mainPanel = new JPanel(new BorderLayout());
@@ -179,8 +179,6 @@ public class POS {
             txtTotal.setText("0.00");
         });
 
-
-
         inputPanel.add(new JLabel("Product Code", JLabel.CENTER));
         inputPanel.add(new JLabel("Product Name", JLabel.CENTER));
         inputPanel.add(new JLabel("Category", JLabel.CENTER));
@@ -301,8 +299,6 @@ public class POS {
             historyTable.getColumnModel().getColumn(i).setResizable(false);
         }
 
-        JScrollPane historyScroll = new JScrollPane(historyTable);
-
         JButton btnClear = new JButton("Clear Current Orders");
         btnClear.addActionListener(e -> {
             tableModel.setRowCount(0);
@@ -323,6 +319,9 @@ public class POS {
             }
         });
 
+        JButton btnShowHistory = new JButton("Show Transaction History");
+        btnShowHistory.addActionListener(e -> showTransactionHistoryDialog());
+
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -332,6 +331,8 @@ public class POS {
         buttonPanel.add(btnDeleteRow);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(btnPrint);
+        buttonPanel.add(Box.createVerticalStrut(10));
+        buttonPanel.add(btnShowHistory);
 
         summaryPanel.add(buttonPanel, BorderLayout.WEST);
 
@@ -352,19 +353,28 @@ public class POS {
         centerPanel.add(lblOrders);
         centerPanel.add(tableScroll);
 
-        JLabel lblHistory = new JLabel("Transaction History", JLabel.CENTER);
-        lblHistory.setFont(new Font("SansSerif", Font.BOLD, 16));
-        lblHistory.setAlignmentX(Component.CENTER_ALIGNMENT);
-        centerPanel.add(Box.createVerticalStrut(10));
-        centerPanel.add(lblHistory);
-        centerPanel.add(historyScroll);
-
         mainPanel.add(inputPanel, BorderLayout.NORTH);
         mainPanel.add(centerPanel, BorderLayout.CENTER);
         mainPanel.add(rightPanel, BorderLayout.EAST);
 
         loadTransactionHistory();
+    }
 
+    private void showTransactionHistoryDialog() {
+        JDialog historyDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(mainPanel), "Transaction History", true);
+        historyDialog.setSize(1000, 600);
+        historyDialog.setLocationRelativeTo(mainPanel);
+
+        JScrollPane historyScroll = new JScrollPane(historyTable);
+        historyDialog.add(historyScroll, BorderLayout.CENTER);
+
+        JButton closeButton = new JButton("Close");
+        closeButton.addActionListener(e -> historyDialog.dispose());
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(closeButton);
+        historyDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        historyDialog.setVisible(true);
     }
 
     private void updateItemTotal(JTextField txtItemTotal) {
