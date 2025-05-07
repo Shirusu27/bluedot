@@ -17,13 +17,14 @@ import java.util.List;
 
 public class POS {
 
-    private JTextField txtProductCode, txtProductName, txtPrice, txtTotal, txtPay, txtBalance;
+    private JTextField txtProductCode, txtProductName,txtCategory, txtPrice, txtTotal, txtPay, txtBalance;
     private JSpinner spinnerQty;
     private JTable table, historyTable;
     private DefaultTableModel tableModel, historyTableModel;
     private JTextArea receiptArea;
     private JPanel mainPanel;
     private JComboBox<String> categoryDropdown;
+
     private JSpinner dateFromSpinner, dateToSpinner;
     private JPopupMenu searchPopupMenu; // For search results popup
     private JList<String> searchSuggestionList; // JList for suggestions
@@ -73,13 +74,62 @@ public class POS {
         // Add KeyListener to txtProductName for live search
         txtProductName.addKeyListener(new KeyAdapter() {
             @Override
+            public void keyPressed(KeyEvent e) {
+                if (searchPopupMenu.isVisible()) {
+                    int selectedIndex = searchSuggestionList.getSelectedIndex();
+                    switch (e.getKeyCode()) {
+                        case KeyEvent.VK_DOWN:
+                            if (selectedIndex < searchListModel.getSize() - 1) {
+                                searchSuggestionList.setSelectedIndex(selectedIndex + 1);
+                                searchSuggestionList.ensureIndexIsVisible(selectedIndex + 1);
+                            }
+                            e.consume();
+                            break;
+                        case KeyEvent.VK_UP:
+                            if (selectedIndex > 0) {
+                                searchSuggestionList.setSelectedIndex(selectedIndex - 1);
+                                searchSuggestionList.ensureIndexIsVisible(selectedIndex - 1);
+                            }
+                            e.consume();
+                            break;
+                        case KeyEvent.VK_ENTER:
+                            if (selectedIndex >= 0) {
+                                String selectedItem = searchSuggestionList.getSelectedValue();
+                                selectProductFromSuggestion(selectedItem);
+                                searchPopupMenu.setVisible(false);
+                                // Return focus so user can keep typing
+                                txtProductName.requestFocusInWindow();
+                            }
+                            e.consume();
+                            break;
+                        case KeyEvent.VK_ESCAPE:
+                            searchPopupMenu.setVisible(false);
+                            txtProductName.requestFocusInWindow();
+                            e.consume();
+                            break;
+                    }
+                }
+            }
+
+            @Override
             public void keyReleased(KeyEvent e) {
+                // Only handle text-changing keys for suggestions
+                if (e.getKeyCode() == KeyEvent.VK_DOWN ||
+                        e.getKeyCode() == KeyEvent.VK_UP ||
+                        e.getKeyCode() == KeyEvent.VK_ENTER ||
+                        e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    return;
+                }
+
                 String searchText = txtProductName.getText().trim();
                 if (!searchText.isEmpty()) {
                     updateSearchSuggestions(searchText);
+
                     if (searchListModel.getSize() > 0) {
                         if (!searchPopupMenu.isVisible()) {
+                            searchSuggestionList.setSelectedIndex(0);
                             searchPopupMenu.show(txtProductName, 0, txtProductName.getHeight());
+                            // Ensure focus returns to text field!
                             txtProductName.requestFocusInWindow();
                         }
                     } else {
@@ -92,41 +142,9 @@ public class POS {
             }
         });
 
-        // Add keyboard navigation for JList (up/down arrows and Enter to select)
-        txtProductName.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (searchPopupMenu.isVisible()) {
-                    int selectedIndex = searchSuggestionList.getSelectedIndex();
-                    switch (e.getKeyCode()) {
-                        case KeyEvent.VK_DOWN:
-                            if (selectedIndex < searchListModel.getSize() - 1) {
-                                searchSuggestionList.setSelectedIndex(selectedIndex + 1);
-                            }
-                            e.consume();
-                            break;
-                        case KeyEvent.VK_UP:
-                            if (selectedIndex > 0) {
-                                searchSuggestionList.setSelectedIndex(selectedIndex - 1);
-                            }
-                            e.consume();
-                            break;
-                        case KeyEvent.VK_ENTER:
-                            if (selectedIndex >= 0) {
-                                String selectedItem = searchSuggestionList.getSelectedValue();
-                                selectProductFromSuggestion(selectedItem);
-                                searchPopupMenu.setVisible(false);
-                            }
-                            e.consume();
-                            break;
-                        case KeyEvent.VK_ESCAPE:
-                            searchPopupMenu.setVisible(false);
-                            e.consume();
-                            break;
-                    }
-                }
-            }
-        });
+
+
+
 
         // Add MouseListener to JList for clicking suggestions
         searchSuggestionList.addMouseListener(new MouseAdapter() {
@@ -233,18 +251,9 @@ public class POS {
 
 
 
-        categoryDropdown = new JComboBox<>();
-        categoryDropdown.addItem("Select Category");
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT DISTINCT Category FROM Item")) {
-            while (rs.next()) {
-                categoryDropdown.addItem(rs.getString("Category"));
-            }
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-        styleComboBox(categoryDropdown);
+        txtCategory = createModernTextField();
+        txtCategory.setEditable(false); // Read only!
+
 
         inputPanel.add(createModernLabel("Product Code"));
         inputPanel.add(createModernLabel("Product Name"));
@@ -256,7 +265,7 @@ public class POS {
 
         inputPanel.add(txtProductCode);
         inputPanel.add(txtProductName);
-        inputPanel.add(categoryDropdown);
+        inputPanel.add(txtCategory);
         inputPanel.add(spinnerQty);
         inputPanel.add(txtPrice);
         inputPanel.add(txtItemTotal);
@@ -274,34 +283,14 @@ public class POS {
                             txtProductName.setText(rs.getString("Model"));
                             txtPrice.setText(String.format("%.2f", rs.getDouble("Unit_Price")));
                             String categoryFromDB = rs.getString("Category");
-                            categoryDropdown.setSelectedItem(categoryFromDB);
+                            txtCategory.setText(categoryFromDB);
                         }
                     } catch (SQLException ignored) {}
                 }
             }
         });
 
-        categoryDropdown.addActionListener(e -> {
-            String code = txtProductCode.getText().trim();
-            String selectedCategory = (String) categoryDropdown.getSelectedItem();
 
-            if (!code.isEmpty() && selectedCategory != null && !selectedCategory.equals("Select Category")) {
-                try (Connection conn = DriverManager.getConnection(DB_URL);
-                     PreparedStatement ps = conn.prepareStatement("SELECT Unit_Price FROM Item WHERE ID = ? AND Category = ?")) {
-                    ps.setString(1, code);
-                    ps.setString(2, selectedCategory);
-                    ResultSet rs = ps.executeQuery();
-                    if (rs.next()) {
-                        double price = rs.getDouble("Unit_Price");
-                        txtPrice.setText(String.format("%.2f", price));
-                    } else {
-                        txtPrice.setText("");
-                    }
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-            }
-        });
 
         spinnerQty.addChangeListener((ChangeEvent e) -> updateItemTotal(txtItemTotal));
         txtPrice.addKeyListener(new KeyAdapter() {
@@ -745,8 +734,11 @@ public class POS {
             for (Product product : matchingProducts) {
                 searchListModel.addElement(product.model + " (ID: " + product.id + ")");
             }
+            // Do NOT setSelectedIndex here!
         }
     }
+
+
 
     private void selectProductFromSuggestion(String selectedItem) {
         if (selectedItem == null || selectedItem.isEmpty()) return;
@@ -809,6 +801,28 @@ public class POS {
             return;
         }
 
+        double total = 0.0;
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            total += ((Number) tableModel.getValueAt(i, 5)).doubleValue();
+        }
+        double pay;
+        try {
+            pay = Double.parseDouble(txtPay.getText().trim());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(getMainPanel(),
+                    "Please enter a valid payment amount.",
+                    "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (pay < total) {
+            JOptionPane.showMessageDialog(getMainPanel(),
+                    "Insufficient payment. Please enter an amount equal to or greater than the total.",
+                    "Payment Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        txtBalance.setText(String.format("%.2f", pay - total));
+
+
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             conn.setAutoCommit(false);
 
@@ -850,7 +864,8 @@ public class POS {
                     String category = (String) tableModel.getValueAt(i, 2);
                     int qty = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
                     double price = (double) tableModel.getValueAt(i, 4);
-                    Double total = ((Number) tableModel.getValueAt(i, 5)).doubleValue();
+                     total = ((Number) tableModel.getValueAt(i, 5)).doubleValue();
+
 
                     // Insert sale record
                     try (PreparedStatement psInsertSale = conn.prepareStatement(
