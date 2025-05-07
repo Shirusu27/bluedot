@@ -155,10 +155,12 @@ public class POS {
                     if (selectedItem != null) {
                         selectProductFromSuggestion(selectedItem);
                         searchPopupMenu.setVisible(false);
+                        txtProductName.requestFocusInWindow(); // <-- ensure focus returns to text field
                     }
                 }
             }
         });
+
 
         // Add a PopupMenuListener to prevent hiding when interacting with the popup
         searchPopupMenu.addPopupMenuListener(new PopupMenuListener() {
