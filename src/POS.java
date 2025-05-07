@@ -28,35 +28,23 @@ public class POS {
     private JPopupMenu searchPopupMenu; // For search results popup
     private JList<String> searchSuggestionList; // JList for suggestions
     private DefaultListModel<String> searchListModel; // Model for JList
+    private String lastReceiptText = ""; //String for last Receipt
+
 
     private static final String DB_URL = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
 
     public POS() {
-        // Set up the main frame with a modern gradient background
-        mainPanel = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                GradientPaint gp = new GradientPaint(0, 0, new Color(33, 150, 243), 0, getHeight(), new Color(13, 71, 161));
-                g2d.setPaint(gp);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        mainPanel.setOpaque(false);
+        // Set up the main frame with a modern flat background color (no transparency)
+        mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(236, 239, 241)); // Light modern gray
 
-        // Modern input panel with rounded borders and transparency
-        JPanel inputPanel = new JPanel(new GridLayout(2, 7, 10, 10)) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setColor(new Color(255, 255, 255, 200));
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-            }
-        };
-        inputPanel.setOpaque(false);
-        inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // Input Panel (solid background, rounded border)
+        JPanel inputPanel = new JPanel(new GridLayout(2, 7, 10, 10));
+        inputPanel.setBackground(Color.WHITE);
+        inputPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(33, 150, 243), 2, true),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
 
         txtProductCode = createModernTextField();
         txtProductName = createModernTextField();
@@ -64,19 +52,18 @@ public class POS {
         styleSpinner(spinnerQty);
         txtPrice = createModernTextField();
         txtPrice.setEditable(false);
-        txtPrice.setBackground(new Color(200, 200, 200, 180));
+        txtPrice.setBackground(new Color(245, 245, 245)); // light gray
         JTextField txtItemTotal = createModernTextField();
         txtItemTotal.setEditable(false);
-        txtItemTotal.setBackground(new Color(200, 200, 200, 180));
-
+        txtItemTotal.setBackground(new Color(245, 245, 245));
 
         // Initialize the search popup menu with a JList for product name search
         searchListModel = new DefaultListModel<>();
         searchSuggestionList = new JList<>(searchListModel);
         searchSuggestionList.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        searchSuggestionList.setBackground(new Color(255, 255, 255, 220));
+        searchSuggestionList.setBackground(Color.WHITE);
         searchSuggestionList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        searchSuggestionList.setVisibleRowCount(5); // Limit visible rows to avoid clutter
+        searchSuggestionList.setVisibleRowCount(5);
         JScrollPane listScrollPane = new JScrollPane(searchSuggestionList);
         listScrollPane.setPreferredSize(new Dimension(300, 150));
 
@@ -91,10 +78,8 @@ public class POS {
                 if (!searchText.isEmpty()) {
                     updateSearchSuggestions(searchText);
                     if (searchListModel.getSize() > 0) {
-                        // Only show popup if it's not already visible to prevent refresh loop
                         if (!searchPopupMenu.isVisible()) {
                             searchPopupMenu.show(txtProductName, 0, txtProductName.getHeight());
-                            // Ensure the text field retains focus after showing popup
                             txtProductName.requestFocusInWindow();
                         }
                     } else {
@@ -106,7 +91,6 @@ public class POS {
                 }
             }
         });
-
 
         // Add keyboard navigation for JList (up/down arrows and Enter to select)
         txtProductName.addKeyListener(new KeyAdapter() {
@@ -158,18 +142,12 @@ public class POS {
             }
         });
 
-
-
         // Add a PopupMenuListener to prevent hiding when interacting with the popup
         searchPopupMenu.addPopupMenuListener(new PopupMenuListener() {
             @Override
-            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
-                // No action needed
-            }
-
+            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {}
             @Override
             public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
-                // Prevent immediate hiding unless explicitly requested
                 if (txtProductName.hasFocus()) {
                     String searchText = txtProductName.getText().trim();
                     if (!searchText.isEmpty() && searchListModel.getSize() > 0) {
@@ -177,20 +155,24 @@ public class POS {
                     }
                 }
             }
-
             @Override
-            public void popupMenuCanceled(PopupMenuEvent e) {
-                // No action needed
-            }
+            public void popupMenuCanceled(PopupMenuEvent e) {}
         });
 
         JButton btnAdd = createModernButton("Add", new Color(76, 175, 80));
+        JButton btnFinalize = createModernButton("Finalize Sale", new Color(255,152,0));
+        btnFinalize.addActionListener(e -> finalizeSale());
         JButton btnPrint = createModernButton("Print", new Color(33, 150, 243));
 
         btnAdd.addActionListener(e -> {
             String code = txtProductCode.getText().trim();
             String name = txtProductName.getText().trim();
             String priceText = txtPrice.getText().trim();
+
+            if (tableModel.getRowCount() == 0) { // cart is empty before adding
+                receiptArea.setText("");
+                lastReceiptText = "";
+            }
 
             for (int i = 0; i < tableModel.getRowCount(); i++) {
                 String existingCode = (String) tableModel.getValueAt(i, 0);
@@ -233,85 +215,23 @@ public class POS {
                 spinnerQty.setValue(0);
                 categoryDropdown.setSelectedIndex(0);
 
-                
-
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(mainPanel, "Invalid price input.");
             }
         });
 
         btnPrint.addActionListener(e -> {
-            if (tableModel.getRowCount() == 0) {
+            if (lastReceiptText == null || lastReceiptText.trim().isEmpty()) {
                 JOptionPane.showMessageDialog(getMainPanel(),
-                        "There are no items to print.",
+                        "There is no receipt to print. Please finalize a sale first.",
                         "Print Error",
                         JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
-            try (Connection conn = DriverManager.getConnection(DB_URL)) {
-                conn.setAutoCommit(false);
-
-                try {
-                    for (int i = 0; i < tableModel.getRowCount(); i++) {
-                        String code = (String) tableModel.getValueAt(i, 0);
-                        String name = (String) tableModel.getValueAt(i, 1);
-                        String category = (String) tableModel.getValueAt(i, 2);
-                        int qty = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
-                        double price = (double) tableModel.getValueAt(i, 4);
-                        Double total = ((Number) tableModel.getValueAt(i, 5)).doubleValue();
-
-                        try (PreparedStatement psInsertSale = conn.prepareStatement(
-                                "INSERT INTO Sales (Product_ID, Product_Name, Category, Quantity, Unit_Price, Total, Date) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                Statement.RETURN_GENERATED_KEYS)) {
-
-                            psInsertSale.setString(1, code);
-                            psInsertSale.setString(2, name);
-                            psInsertSale.setString(3, category);
-                            psInsertSale.setInt(4, qty);
-                            psInsertSale.setDouble(5, price);
-                            psInsertSale.setDouble(6, total);
-                            psInsertSale.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()));
-                            psInsertSale.executeUpdate();
-
-                            ResultSet generatedKeys = psInsertSale.getGeneratedKeys();
-                            int generatedId = -1;
-                            if (generatedKeys.next()) {
-                                generatedId = generatedKeys.getInt(1);
-                            }
-
-                            historyTableModel.insertRow(0, new Object[]{
-                                    generatedId, code, name, category, qty, price, total,
-                                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM-dd-yyyy"))
-                            });
-                        }
-
-                        try (PreparedStatement psUpdateStock = conn.prepareStatement(
-                                "UPDATE Item SET Quantity_in_Stock = Quantity_in_Stock - ? WHERE ID = ?")) {
-                            psUpdateStock.setInt(1, qty);
-                            psUpdateStock.setString(2, code);
-                            psUpdateStock.executeUpdate();
-                        }
-                    }
-
-                    conn.commit();
-                    JOptionPane.showMessageDialog(getMainPanel(), "Sale finalized and printed!");
-                } catch (SQLException ex) {
-                    conn.rollback();
-                    JOptionPane.showMessageDialog(getMainPanel(), "Error saving sale: " + ex.getMessage());
-                    return;
-                }
-            } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(getMainPanel(), "DB Error: " + ex.getMessage());
-                return;
-            }
-
-            generateReceipt();
-            printBill();
-
-            tableModel.setRowCount(0);
-            txtTotal.setText("0.00");
+            printBill(lastReceiptText);
         });
+
+
 
         categoryDropdown = new JComboBox<>();
         categoryDropdown.addItem("Select Category");
@@ -409,14 +329,14 @@ public class POS {
 
         JPanel summaryPanel = new JPanel();
         summaryPanel.setLayout(new BoxLayout(summaryPanel, BoxLayout.Y_AXIS));
-        summaryPanel.setOpaque(false);
+        summaryPanel.setBackground(Color.WHITE);
 
         txtTotal = createSummaryField(summaryPanel, "Total");
-        txtTotal.setBackground(new Color(200, 200, 200, 180));
+        txtTotal.setBackground(new Color(245, 245, 245));
         txtTotal.setEditable(false);
         txtPay = createSummaryField(summaryPanel, "Pay");
         txtBalance = createSummaryField(summaryPanel, "Balance");
-        txtBalance.setBackground(new Color(200, 200, 200, 180));
+        txtBalance.setBackground(new Color(245, 245, 245));
         txtBalance.setEditable(false);
 
         txtPay.addKeyListener(new KeyAdapter() {
@@ -438,8 +358,7 @@ public class POS {
                 return false;
             }
         };
-        historyTable =
-                styleTable(new JTable(historyTableModel));
+        historyTable = styleTable(new JTable(historyTableModel));
         historyTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         historyTable.setRowHeight(25);
 
@@ -475,51 +394,38 @@ public class POS {
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        buttonPanel.setOpaque(false);
+        buttonPanel.setBackground(Color.WHITE);
 
         buttonPanel.add(btnClear);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(btnDeleteRow);
         buttonPanel.add(Box.createVerticalStrut(10));
+        buttonPanel.add(btnFinalize);
+        buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(btnPrint);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(btnShowHistory);
+
 
         summaryPanel.add(buttonPanel, BorderLayout.WEST);
 
         receiptArea = new JTextArea(20, 40);
         receiptArea.setEditable(false);
         receiptArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        receiptArea.setBackground(new Color(255, 255, 255, 220));
+        receiptArea.setBackground(Color.WHITE);
         receiptArea.setBorder(BorderFactory.createLineBorder(new Color(33, 150, 243), 2, true));
         JScrollPane receiptScroll = new JScrollPane(receiptArea);
 
-        JPanel rightPanel = new JPanel(new BorderLayout(5, 5)) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setColor(new Color(255, 255, 255, 100));
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-            }
-        };
-        rightPanel.setOpaque(false);
+        JPanel rightPanel = new JPanel(new BorderLayout(5, 5));
+        rightPanel.setBackground(Color.WHITE);
         rightPanel.add(summaryPanel, BorderLayout.NORTH);
         rightPanel.add(receiptScroll, BorderLayout.CENTER);
 
-        JPanel centerPanel = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setColor(new Color(255, 255, 255, 100));
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-            }
-        };
-        centerPanel.setOpaque(false);
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.setBackground(Color.WHITE);
         JLabel lblOrders = new JLabel("Current Orders", JLabel.CENTER);
         lblOrders.setFont(new Font("SansSerif", Font.BOLD, 18));
-        lblOrders.setForeground(Color.WHITE);
+        lblOrders.setForeground(new Color(33, 150, 243));
         centerPanel.add(lblOrders, BorderLayout.NORTH);
         centerPanel.add(tableScroll, BorderLayout.CENTER);
 
@@ -534,32 +440,23 @@ public class POS {
         JDialog historyDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(mainPanel), "Transaction History", true);
         historyDialog.setSize(1000, 600);
         historyDialog.setLocationRelativeTo(mainPanel);
-        historyDialog.getContentPane().setBackground(new Color(13, 71, 161));
+        historyDialog.getContentPane().setBackground(Color.WHITE);
 
         JScrollPane historyScroll = new JScrollPane(historyTable);
         historyScroll.setBorder(BorderFactory.createLineBorder(new Color(255, 193, 7), 2, true));
 
-        // Date filter panel with modern styling
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10)) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setColor(new Color(255, 255, 255, 200));
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
-            }
-        };
-        filterPanel.setOpaque(false);
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        filterPanel.setBackground(Color.WHITE);
 
         JLabel lblFrom = createModernLabel("From:");
-        lblFrom.setForeground(Color.WHITE);
+        lblFrom.setForeground(new Color(33, 150, 243));
         dateFromSpinner = new JSpinner(new SpinnerDateModel());
         JSpinner.DateEditor fromEditor = new JSpinner.DateEditor(dateFromSpinner, "MM/dd/yyyy");
         dateFromSpinner.setEditor(fromEditor);
         styleSpinner(dateFromSpinner);
 
         JLabel lblTo = createModernLabel("To:");
-        lblTo.setForeground(Color.WHITE);
+        lblTo.setForeground(new Color(33, 150, 243));
         dateToSpinner = new JSpinner(new SpinnerDateModel());
         JSpinner.DateEditor toEditor = new JSpinner.DateEditor(dateToSpinner, "MM/dd/yyyy");
         dateToSpinner.setEditor(toEditor);
@@ -584,7 +481,7 @@ public class POS {
         JButton closeButton = createModernButton("Close", new Color(255, 193, 7));
         closeButton.addActionListener(e -> historyDialog.dispose());
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setOpaque(false);
+        buttonPanel.setBackground(Color.WHITE);
         buttonPanel.add(closeButton);
         historyDialog.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -644,7 +541,7 @@ public class POS {
         textField.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(33, 150, 243), 1, true),
                 BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-        textField.setBackground(new Color(255, 255, 255, 220));
+        textField.setBackground(Color.WHITE);
         textField.setFont(new Font("SansSerif", Font.PLAIN, 14));
         return textField;
     }
@@ -652,45 +549,37 @@ public class POS {
     private JLabel createModernLabel(String text) {
         JLabel label = new JLabel(text, JLabel.CENTER);
         label.setFont(new Font("SansSerif", Font.BOLD, 14));
-        label.setForeground(Color.WHITE);
+        label.setForeground(new Color(33, 150, 243));
         return label;
     }
 
     private JButton createModernButton(String text, Color color) {
-        JButton button = new JButton(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(color);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                super.paintComponent(g);
-            }
-        };
-        button.setContentAreaFilled(false);
-        button.setBorderPainted(false);
+        JButton button = new JButton(text);
+        button.setFocusPainted(false);
+        button.setBackground(color);
         button.setForeground(Color.WHITE);
         button.setFont(new Font("SansSerif", Font.BOLD, 14));
         button.setPreferredSize(new Dimension(150, 40));
+        button.setBorder(BorderFactory.createLineBorder(color.darker(), 2, true));
         return button;
     }
 
     private void styleSpinner(JSpinner spinner) {
         spinner.setBorder(BorderFactory.createLineBorder(new Color(33, 150, 243), 1, true));
         spinner.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        spinner.setBackground(new Color(255, 255, 255, 220));
+        spinner.setBackground(Color.WHITE);
     }
 
     private void styleComboBox(JComboBox<String> comboBox) {
         comboBox.setBorder(BorderFactory.createLineBorder(new Color(33, 150, 243), 1, true));
         comboBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        comboBox.setBackground(new Color(255, 255, 255, 220));
+        comboBox.setBackground(Color.WHITE);
     }
 
     private JTable styleTable(JTable table) {
         table.setBorder(BorderFactory.createLineBorder(new Color(33, 150, 243), 1, true));
         table.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        table.setBackground(new Color(255, 255, 255, 220));
+        table.setBackground(Color.WHITE);
         table.setGridColor(new Color(33, 150, 243));
         table.getTableHeader().setBackground(new Color(33, 150, 243));
         table.getTableHeader().setForeground(Color.WHITE);
@@ -708,7 +597,7 @@ public class POS {
 
     private JTextField createSummaryField(JPanel panel, String label) {
         JLabel lbl = new JLabel(label);
-        lbl.setForeground(Color.WHITE);
+        lbl.setForeground(new Color(33, 150, 243));
         lbl.setFont(new Font("SansSerif", Font.BOLD, 14));
         JTextField tf = new JTextField("0.00");
         tf.setHorizontalAlignment(JTextField.RIGHT);
@@ -716,7 +605,7 @@ public class POS {
         tf.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(33, 150, 243), 1, true),
                 BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-        tf.setBackground(new Color(255, 255, 255, 220));
+        tf.setBackground(Color.WHITE);
         tf.setFont(new Font("SansSerif", Font.PLAIN, 14));
         panel.add(lbl);
         panel.add(tf);
@@ -729,25 +618,6 @@ public class POS {
             sum += (double) tableModel.getValueAt(i, 5);
         }
         txtTotal.setText(String.format("%.2f", sum));
-    }
-
-    private void loadExistingSales() {
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM Sales")) {
-
-            while (rs.next()) {
-                String code = rs.getString("Product_ID");
-                String name = rs.getString("Product_Name");
-                int qty = rs.getInt("Quantity");
-                double price = rs.getDouble("Unit_Price");
-                double total = rs.getDouble("Total");
-                tableModel.addRow(new Object[]{code, name, qty, price, total});
-            }
-            updateTotal();
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(mainPanel, "Failed to load sales:\n" + ex.getMessage());
-        }
     }
 
     private void loadTransactionHistory() {
@@ -785,7 +655,7 @@ public class POS {
         }
     }
 
-    private void printBill() {
+    private void printBill(String receiptText) {
         PrinterJob job = PrinterJob.getPrinterJob();
         job.setJobName("POS Receipt");
 
@@ -793,7 +663,12 @@ public class POS {
             if (pageIndex > 0) return Printable.NO_SUCH_PAGE;
             Graphics2D g2d = (Graphics2D) graphics;
             g2d.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
-            receiptArea.printAll(g2d);
+            g2d.setFont(new Font("Monospaced", Font.PLAIN, 12));
+            int y = g2d.getFontMetrics().getHeight();
+            for (String line : receiptText.split("\n")) {
+                g2d.drawString(line, 0, y);
+                y += g2d.getFontMetrics().getHeight();
+            }
             return Printable.PAGE_EXISTS;
         });
 
@@ -806,36 +681,56 @@ public class POS {
         }
     }
 
+
+
     private void generateReceipt() {
         StringBuilder receipt = new StringBuilder();
-        receipt.append("********** Bluedot Gunstore **********\n");
 
+        // Business name and header
+        receipt.append("************************************\n");
+        receipt.append("        Bluedot Gunshop\n");
+        receipt.append("************************************\n");
+        receipt.append("Date: ").append(new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(new java.util.Date())).append("\n");
+        receipt.append("------------------------------------\n");
+        receipt.append(String.format("%-12s %-12s %5s %8s\n", "Product", "Category", "Qty", "Total"));
+        receipt.append("------------------------------------\n");
+
+        double grandTotal = 0.0;
         int rowCount = tableModel.getRowCount();
-        receipt.append("Number of Items: ").append(rowCount).append("\n");
-        receipt.append("----------------------------\n");
-
         for (int i = 0; i < rowCount; i++) {
-            String code = (String) tableModel.getValueAt(i, 0);
-            String name = (String) tableModel.getValueAt(i, 1);
+            String productName = (String) tableModel.getValueAt(i, 1);
             String category = (String) tableModel.getValueAt(i, 2);
             int qty = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
-            double price = (double) tableModel.getValueAt(i, 4);
-            Double total = ((Number) tableModel.getValueAt(i, 5)).doubleValue();
+            double total = ((Number) tableModel.getValueAt(i, 5)).doubleValue();
+            grandTotal += total;
 
-            receipt.append("Item: ").append(name).append("\n");
-            receipt.append("Unit Code: ").append(code).append("\n");
-            receipt.append("Category: ").append(category).append("\n");
-            receipt.append("Quantity: ").append(qty).append("\n");
-            receipt.append("Unit Price: ").append(price).append("\n");
-            receipt.append("Total: ").append(total).append("\n");
-            receipt.append("----------------------------\n");
+            receipt.append(String.format("%-12s %-12s %5d %8.2f\n",
+                    productName.length() > 12 ? productName.substring(0, 12) : productName,
+                    category.length() > 12 ? category.substring(0, 12) : category,
+                    qty, total
+            ));
         }
 
-        receipt.append("Total Amount: ").append(txtTotal.getText()).append("\n");
-        receipt.append("******************************\n");
+        receipt.append("------------------------------------\n");
+        receipt.append(String.format("GRAND TOTAL: %26.2f\n", grandTotal));
+        receipt.append("------------------------------------\n");
 
-        receiptArea.setText(receipt.toString());
+        String pay = txtPay.getText().trim();
+        String balance = txtBalance.getText().trim();
+        if (!pay.isEmpty() && !pay.equals("0.00")) {
+            receipt.append(String.format("PAY: %33s\n", pay));
+        }
+        if (!balance.isEmpty() && !balance.equals("0.00")) {
+            receipt.append(String.format("CHANGE: %30s\n", balance));
+        }
+
+        receipt.append("********* Thank you! ***************\n");
+
+        lastReceiptText = receipt.toString();            // <--- Store for print
+        receiptArea.setText(lastReceiptText);            // <--- Display in textarea
     }
+
+
 
     public JPanel getMainPanel() {
         return mainPanel;
@@ -846,7 +741,6 @@ public class POS {
         List<Product> matchingProducts = searchProducts(searchText);
 
         if (!matchingProducts.isEmpty()) {
-            // Sort products alphabetically by model name
             matchingProducts.sort((p1, p2) -> p1.model.compareToIgnoreCase(p2.model));
             for (Product product : matchingProducts) {
                 searchListModel.addElement(product.model + " (ID: " + product.id + ")");
@@ -857,7 +751,6 @@ public class POS {
     private void selectProductFromSuggestion(String selectedItem) {
         if (selectedItem == null || selectedItem.isEmpty()) return;
 
-        // Extract model or search for the product in the database if needed
         List<Product> products = searchProducts(selectedItem.split(" \\(ID: ")[0]);
         for (Product product : products) {
             if ((product.model + " (ID: " + product.id + ")").equals(selectedItem)) {
@@ -870,7 +763,6 @@ public class POS {
         }
     }
 
-
     private List<Product> searchProducts(String searchText) {
         List<Product> products = new ArrayList<>();
         String query = "SELECT ID, Model, Category, Unit_Price FROM Item WHERE Model LIKE ?";
@@ -879,7 +771,7 @@ public class POS {
             ps.setString(1, "%" + searchText + "%");
             ResultSet rs = ps.executeQuery();
             int count = 0;
-            while (rs.next() && count < 10) { // Limit to 10 results to avoid clutter
+            while (rs.next() && count < 10) { // Limit to 10 results
                 String id = rs.getString("ID");
                 String model = rs.getString("Model");
                 String category = rs.getString("Category");
@@ -906,5 +798,138 @@ public class POS {
             this.category = category;
             this.price = price;
         }
+    }
+
+    private void finalizeSale() {
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(getMainPanel(),
+                    "There are no items to finalize.",
+                    "Finalize Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            conn.setAutoCommit(false);
+
+            // Check all stock first
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                String code = (String) tableModel.getValueAt(i, 0);
+                int qty = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
+
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT Quantity_in_Stock FROM Item WHERE ID = ?")) {
+                    ps.setString(1, code);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        int stock = rs.getInt("Quantity_in_Stock");
+                        if (qty > stock) {
+                            JOptionPane.showMessageDialog(getMainPanel(),
+                                    "Not enough inventory for Product Code: " + code + ". In stock: " + stock + ", Required: " + qty,
+                                    "Insufficient Inventory",
+                                    JOptionPane.ERROR_MESSAGE);
+                            conn.rollback();
+                            return;
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(getMainPanel(),
+                                "Product code " + code + " not found in inventory.",
+                                "Inventory Error",
+                                JOptionPane.ERROR_MESSAGE);
+                        conn.rollback();
+                        return;
+                    }
+                }
+            }
+
+            // All checks passed, perform the sale
+            try {
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    String code = (String) tableModel.getValueAt(i, 0);
+                    String name = (String) tableModel.getValueAt(i, 1);
+                    String category = (String) tableModel.getValueAt(i, 2);
+                    int qty = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
+                    double price = (double) tableModel.getValueAt(i, 4);
+                    Double total = ((Number) tableModel.getValueAt(i, 5)).doubleValue();
+
+                    // Insert sale record
+                    try (PreparedStatement psInsertSale = conn.prepareStatement(
+                            "INSERT INTO Sales (Product_ID, Product_Name, Category, Quantity, Unit_Price, Total, Date) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            Statement.RETURN_GENERATED_KEYS)) {
+
+                        psInsertSale.setString(1, code);
+                        psInsertSale.setString(2, name);
+                        psInsertSale.setString(3, category);
+                        psInsertSale.setInt(4, qty);
+                        psInsertSale.setDouble(5, price);
+                        psInsertSale.setDouble(6, total);
+                        psInsertSale.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()));
+                        psInsertSale.executeUpdate();
+
+                        ResultSet generatedKeys = psInsertSale.getGeneratedKeys();
+                        int generatedId = -1;
+                        if (generatedKeys.next()) {
+                            generatedId = generatedKeys.getInt(1);
+                        }
+
+                        historyTableModel.insertRow(0, new Object[]{
+                                generatedId, code, name, category, qty, price, total,
+                                LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM-dd-yyyy"))
+                        });
+                    }
+
+                    // Update item stock
+                    try (PreparedStatement psUpdateStock = conn.prepareStatement(
+                            "UPDATE Item SET Quantity_in_Stock = Quantity_in_Stock - ? WHERE ID = ?")) {
+                        psUpdateStock.setInt(1, qty);
+                        psUpdateStock.setString(2, code);
+                        psUpdateStock.executeUpdate();
+                    }
+                }
+
+                conn.commit();
+
+                // Generate and display receipt while cart still has data
+                generateReceipt();
+
+                // Ask if want to print now
+                int result = JOptionPane.showConfirmDialog(getMainPanel(),
+                        "Sale finalized!\nWould you like to print a receipt now?",
+                        "Print Receipt?", JOptionPane.YES_NO_OPTION);
+
+                if (result == JOptionPane.YES_OPTION) {
+                    printBill(lastReceiptText); // <-- send stored receipt text to printer
+                }
+
+                // Now clear the cart and fields!
+                tableModel.setRowCount(0);
+                txtTotal.setText("0.00");
+                txtPay.setText("0.00");
+                txtBalance.setText("0.00");
+
+            } catch (SQLException ex) {
+                conn.rollback();
+                JOptionPane.showMessageDialog(getMainPanel(), "Error saving sale: " + ex.getMessage());
+                return;
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(getMainPanel(), "DB Error: " + ex.getMessage());
+            return;
+        }
+    }
+
+
+
+    // For testing standalone
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Bluedot POS");
+            POS posPanel = new POS();
+            frame.setContentPane(posPanel.getMainPanel());
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(1300, 800);
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
     }
 }
