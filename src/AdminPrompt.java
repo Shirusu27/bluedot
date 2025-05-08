@@ -14,6 +14,8 @@ public class AdminPrompt {
         this.onSuccess = onSuccess;
 
         frame = new JFrame("Admin Verification");
+        ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
+        frame.setIconImage(icon.getImage());
         frame.setSize(300, 150);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setLayout(null);
@@ -53,6 +55,7 @@ public class AdminPrompt {
 
             if (rs.next()) {
                 JOptionPane.showMessageDialog(frame, "Access Granted!");
+
                 frame.dispose();
                 if (onSuccess != null) {
                     onSuccess.run(); // ✅ Run the success callback

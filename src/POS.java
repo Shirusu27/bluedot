@@ -14,16 +14,12 @@ import java.util.List;
 
 public class POS {
 
-    // Replace all UI fields with a single reference:
     private POSDesign design;
     private String lastReceiptText = "";
-
-    private static final String DB_URL = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
+    private InventoryManagement inventoryManagement;
 
     public POS() {
         design = new POSDesign();
-
-        // Attach listeners and logic to design's components:
 
         // Product Name live search (KeyListener)
         design.txtProductName.addKeyListener(new KeyAdapter() {
@@ -51,7 +47,6 @@ public class POS {
                                 String selectedItem = design.searchSuggestionList.getSelectedValue();
                                 selectProductFromSuggestion(selectedItem);
                                 design.searchPopupMenu.setVisible(false);
-                                // Return focus so user can keep typing
                                 design.txtProductName.requestFocusInWindow();
                             }
                             e.consume();
@@ -67,14 +62,12 @@ public class POS {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                // Only handle text-changing keys for suggestions
                 if (e.getKeyCode() == KeyEvent.VK_DOWN ||
                         e.getKeyCode() == KeyEvent.VK_UP ||
                         e.getKeyCode() == KeyEvent.VK_ENTER ||
                         e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     return;
                 }
-
                 String searchText = design.txtProductName.getText().trim();
                 if (!searchText.isEmpty()) {
                     updateSearchSuggestions(searchText);
@@ -114,7 +107,7 @@ public class POS {
             public void keyReleased(KeyEvent e) {
                 String code = design.txtProductCode.getText().trim();
                 if (!code.isEmpty()) {
-                    try (Connection conn = DriverManager.getConnection(DB_URL);
+                    try (Connection conn = DatabaseConnection.connect();
                          PreparedStatement ps = conn.prepareStatement("SELECT * FROM Item WHERE ID = ?")) {
                         ps.setString(1, code);
                         ResultSet rs = ps.executeQuery();
@@ -136,7 +129,6 @@ public class POS {
         });
 
         // Pay field updates balance
-// Pay field updates balance (only show positive change, otherwise "Insufficient")
         design.txtPay.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
                 try {
@@ -230,7 +222,7 @@ public class POS {
             double total = qty * price;
 
             String category = "";
-            try (Connection conn = DriverManager.getConnection(DB_URL);
+            try (Connection conn = DatabaseConnection.connect();
                  PreparedStatement ps = conn.prepareStatement("SELECT Category FROM Item WHERE ID = ?")) {
                 ps.setString(1, code);
                 ResultSet rs = ps.executeQuery();
@@ -306,7 +298,35 @@ public class POS {
         filterPanel.add(btnFilter);
         filterPanel.add(btnReset);
 
-        historyDialog.add(filterPanel, BorderLayout.NORTH);
+        if (design.btnClearSalesHistory == null) {
+            design.btnClearSalesHistory = new JButton("Clear Sales History");
+            design.btnExportSales = new JButton("Export Sales DB");
+            design.btnImportSales = new JButton("Import Sales DB");
+            // Style as needed
+            design.btnClearSalesHistory.setBackground(new Color(233, 30, 99));
+            design.btnClearSalesHistory.setForeground(Color.WHITE);
+            design.btnExportSales.setBackground(new Color(33, 150, 243));
+            design.btnExportSales.setForeground(Color.WHITE);
+            design.btnImportSales.setBackground(new Color(33, 150, 243));
+            design.btnImportSales.setForeground(Color.WHITE);
+        }
+
+        JPanel dbPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        dbPanel.setBackground(Color.WHITE);
+        dbPanel.add(design.btnClearSalesHistory);
+        dbPanel.add(design.btnExportSales);
+        dbPanel.add(design.btnImportSales);
+
+        design.btnClearSalesHistory.addActionListener(e -> clearSalesHistory());
+        design.btnExportSales.addActionListener(e -> exportDatabase());
+        design.btnImportSales.addActionListener(e -> importDatabase());
+
+        Box verticalBox = Box.createVerticalBox();
+        verticalBox.add(filterPanel);
+        verticalBox.add(Box.createVerticalStrut(10));
+        verticalBox.add(dbPanel);
+
+        historyDialog.add(verticalBox, BorderLayout.NORTH);
         historyDialog.add(historyScroll, BorderLayout.CENTER);
 
         JButton closeButton = new JButton("Close");
@@ -333,7 +353,7 @@ public class POS {
         cal.set(java.util.Calendar.SECOND, 59);
         toDate = cal.getTime();
 
-        try (Connection conn = DriverManager.getConnection(DB_URL);
+        try (Connection conn = DatabaseConnection.connect();
              PreparedStatement stmt = conn.prepareStatement(
                      "SELECT * FROM Sales WHERE Date BETWEEN ? AND ? ORDER BY ID DESC")) {
             stmt.setTimestamp(1, new Timestamp(fromDate.getTime()));
@@ -370,7 +390,7 @@ public class POS {
 
     private void loadTransactionHistory() {
         design.historyTableModel.setRowCount(0);
-        try (Connection conn = DriverManager.getConnection(DB_URL);
+        try (Connection conn = DatabaseConnection.connect();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT * FROM Sales ORDER BY ID DESC")) {
 
@@ -457,6 +477,7 @@ public class POS {
         }
 
         receipt.append("------------------------------------\n");
+        receipt.append("------------------------------------\n");
         receipt.append(String.format("GRAND TOTAL: %26.2f\n", grandTotal));
         receipt.append("------------------------------------\n");
 
@@ -487,7 +508,8 @@ public class POS {
         }
     }
 
-    private void selectProductFromSuggestion(String selectedItem) { if (selectedItem == null || selectedItem.isEmpty()) return;
+    private void selectProductFromSuggestion(String selectedItem) {
+        if (selectedItem == null || selectedItem.isEmpty()) return;
 
         List<Product> products = searchProducts(selectedItem.split(" \\(ID: ")[0]);
         for (Product product : products) {
@@ -504,12 +526,12 @@ public class POS {
     private List<Product> searchProducts(String searchText) {
         List<Product> products = new ArrayList<>();
         String query = "SELECT ID, Model, Category, Unit_Price FROM Item WHERE Model LIKE ?";
-        try (Connection conn = DriverManager.getConnection(DB_URL);
+        try (Connection conn = DatabaseConnection.connect();
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, "%" + searchText + "%");
             ResultSet rs = ps.executeQuery();
             int count = 0;
-            while (rs.next() && count < 10) { // Limit to 10 results
+            while (rs.next() && count < 10) {
                 String id = rs.getString("ID");
                 String model = rs.getString("Model");
                 String category = rs.getString("Category");
@@ -568,8 +590,7 @@ public class POS {
         }
         design.txtBalance.setText(String.format("%.2f", pay - total));
 
-
-        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+        try (Connection conn = DatabaseConnection.connect()) {
             conn.setAutoCommit(false);
 
             // Check all stock first
@@ -658,7 +679,7 @@ public class POS {
                         "Print Receipt?", JOptionPane.YES_NO_OPTION);
 
                 if (result == JOptionPane.YES_OPTION) {
-                    printBill(lastReceiptText); // <-- send stored receipt text to printer
+                    printBill(lastReceiptText);
                 }
 
                 // Now clear the cart and fields!
@@ -678,12 +699,181 @@ public class POS {
         }
     }
 
+    private void clearSalesHistory() {
+        // Ask for admin password
+        JPanel panel = new JPanel(new GridLayout(2, 2));
+        JTextField usernameField = new JTextField();
+        JPasswordField passwordField = new JPasswordField();
+        panel.add(new JLabel("Username:"));
+        panel.add(usernameField);
+        panel.add(new JLabel("Password:"));
+        panel.add(passwordField);
+
+        int result = JOptionPane.showConfirmDialog(getMainPanel(), panel, "Admin Login", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            String username = usernameField.getText().trim();
+            String password = new String(passwordField.getPassword());
+            try (Connection conn = DatabaseConnection.connect()) {
+                String sql = "SELECT * FROM users WHERE username=? AND password=?";
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                ResultSet rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(getMainPanel(), "Incorrect username or password.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(getMainPanel(), "Error checking admin password:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        } else {
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(getMainPanel(),
+                "Are you sure you want to delete ALL sales transactions? This cannot be undone!",
+                "Confirm Clear Sales History", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (confirm == JOptionPane.YES_OPTION) {
+            try (Connection conn = DatabaseConnection.connect();
+                 Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("DELETE FROM Sales");
+                JOptionPane.showMessageDialog(getMainPanel(), "All sales transactions have been deleted.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                loadTransactionHistory();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(getMainPanel(), "Error clearing sales history:\n" + ex.getMessage());
+            }
+        }
+    }
+
+    private void exportDatabase() {
+        // Ask for admin password
+        JPanel panel = new JPanel(new GridLayout(2, 2));
+        JTextField usernameField = new JTextField();
+        JPasswordField passwordField = new JPasswordField();
+        panel.add(new JLabel("Username:"));
+        panel.add(usernameField);
+        panel.add(new JLabel("Password:"));
+        panel.add(passwordField);
+
+        int result = JOptionPane.showConfirmDialog(getMainPanel(), panel, "Admin Login", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            String username = usernameField.getText().trim();
+            String password = new String(passwordField.getPassword());
+            try (Connection conn = DatabaseConnection.connect()) {
+                String sql = "SELECT * FROM users WHERE username=? AND password=?";
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                ResultSet rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(getMainPanel(), "Incorrect username or password.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(getMainPanel(), "Error checking admin password:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        } else {
+            return;
+        }
+
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Export (Backup) Sales Database");
+        fc.setSelectedFile(new java.io.File("bluedotDatabase_backup.accdb"));
+        int chooserResult = fc.showSaveDialog(getMainPanel());
+        if (chooserResult == JFileChooser.APPROVE_OPTION) {
+            java.io.File dest = fc.getSelectedFile();
+            try {
+                String currentDbPath = DatabaseConnection.getUrl().replace("jdbc:ucanaccess://", "");
+                java.nio.file.Files.copy(
+                        java.nio.file.Paths.get(currentDbPath),
+                        dest.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                JOptionPane.showMessageDialog(getMainPanel(), "Database backup exported:\n" + dest.getAbsolutePath(), "Success", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(getMainPanel(), "Export failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+
+    private void importDatabase() {
+        // Ask for admin password
+        JPanel panel = new JPanel(new GridLayout(2, 2));
+        JTextField usernameField = new JTextField();
+        JPasswordField passwordField = new JPasswordField();
+        panel.add(new JLabel("Username:"));
+        panel.add(usernameField);
+        panel.add(new JLabel("Password:"));
+        panel.add(passwordField);
+
+        int result = JOptionPane.showConfirmDialog(getMainPanel(), panel, "Admin Login", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            String username = usernameField.getText().trim();
+            String password = new String(passwordField.getPassword());
+            try (Connection conn = DatabaseConnection.connect()) {
+                String sql = "SELECT * FROM users WHERE username=? AND password=?";
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                ResultSet rs = stmt.executeQuery();
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(getMainPanel(), "Incorrect username or password.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(getMainPanel(), "Error checking admin password:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        } else {
+            return;
+        }
+
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Import/Switch Sales Database");
+        int chooserResult = fc.showOpenDialog(getMainPanel());
+        if (chooserResult == JFileChooser.APPROVE_OPTION) {
+            java.io.File chosenFile = fc.getSelectedFile();
+            String newDbUrl = "jdbc:ucanaccess://" + chosenFile.getAbsolutePath();
+
+            // Test if the DB is accessible and has the correct tables
+            try (Connection conn = DriverManager.getConnection(newDbUrl);
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT * FROM Sales")) {
+
+                // If query succeeds, switch!
+                DatabaseConnection.setUrl(newDbUrl);
+
+                // If you have inventoryManagement instance
+                if (inventoryManagement != null)
+                    inventoryManagement.reconnect(newDbUrl);
+
+                JOptionPane.showMessageDialog(getMainPanel(),
+                        "Switched to database:\n" + chosenFile.getAbsolutePath(),
+                        "Database Switched", JOptionPane.INFORMATION_MESSAGE);
+
+                loadTransactionHistory();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(getMainPanel(),
+                        "Failed to switch: " + ex.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+
+    // Management logic for admin operations would go here...
+    // (clearSalesHistory, exportDatabase, importDatabase)
+    // Make sure all database access uses DatabaseConnection.connect() for consistency.
+
     public JPanel getMainPanel() {
         return design.getMainPanel();
     }
 
-    // For testing standalone
     public static void main(String[] args) {
+        // Set DB URL before app starts
+        DatabaseConnection.setUrl("jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb");
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Bluedot POS");
             POS posPanel = new POS();

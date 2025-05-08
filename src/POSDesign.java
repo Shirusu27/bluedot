@@ -40,6 +40,9 @@ public class POSDesign {
     public JList<String> searchSuggestionList;
     public DefaultListModel<String> searchListModel;
     public JSpinner dateFromSpinner, dateToSpinner;
+    public JButton btnClearSalesHistory;
+    public JButton btnExportSales;
+    public JButton btnImportSales;
 
     public POSDesign() {
         mainPanel = new JPanel(new BorderLayout(15, 15));
@@ -107,67 +110,70 @@ public class POSDesign {
         centerPanel.add(lblOrders, BorderLayout.NORTH);
         centerPanel.add(tableScroll, BorderLayout.CENTER);
 
-        // --- RIGHT SECTION: Summary & Actions (modern grid) + Receipt Preview (fills) ---
-        int summaryPanelWidth = 480; // wider panel
-        int summaryFieldWidth = 140, summaryFieldHeight = 32;
-        int buttonWidth = 200, buttonHeight = 38;
+        // --- RIGHT SECTION: Summary & Actions + Receipt Preview + History Button ---
+        int summaryPanelWidth = 340;
+        int buttonWidth = 155, buttonHeight = 38;
+        int summaryFieldWidth = 310, summaryFieldHeight = 34;
 
         JPanel rightSectionPanel = new JPanel(new BorderLayout(10, 10));
         rightSectionPanel.setOpaque(false);
 
-        // --- Summary & Actions Panel ---
+        // === Summary & Actions Panel ===
         JPanel summaryAndActionsPanel = new JPanel();
-        summaryAndActionsPanel.setLayout(new BorderLayout());
+        summaryAndActionsPanel.setLayout(new BoxLayout(summaryAndActionsPanel, BoxLayout.Y_AXIS));
         summaryAndActionsPanel.setBackground(COLOR_STEEL_BLUE_PANEL);
-        summaryAndActionsPanel.setPreferredSize(new Dimension(summaryPanelWidth, 205));
-        summaryAndActionsPanel.setMaximumSize(new Dimension(summaryPanelWidth, 205));
+        summaryAndActionsPanel.setPreferredSize(new Dimension(summaryPanelWidth, 320));
+        summaryAndActionsPanel.setMaximumSize(new Dimension(summaryPanelWidth, 320));
         summaryAndActionsPanel.setBorder(createStyledPanelBorder("Summary & Actions"));
 
-        // --- Actions Grid (2x3 grid) ---
-        JPanel actionsGrid = new JPanel(new GridLayout(2, 3, 12, 10));
-        actionsGrid.setOpaque(false);
-
+        // --- Button Row 1: Finalize Sale | Print Receipt ---
+        JPanel buttonRow1 = new JPanel();
+        buttonRow1.setOpaque(false);
+        buttonRow1.setLayout(new BoxLayout(buttonRow1, BoxLayout.X_AXIS));
         btnFinalize = createStyledButton("Finalize Sale", COLOR_CADET_BLUE_ACCENT, new Dimension(buttonWidth, buttonHeight));
         btnPrint = createStyledButton("Print Receipt", COLOR_CADET_BLUE_ACCENT, new Dimension(buttonWidth, buttonHeight));
-        btnShowHistory = createStyledButton("History", COLOR_CADET_BLUE_ACCENT, new Dimension(buttonWidth, buttonHeight));
+        buttonRow1.add(Box.createHorizontalGlue());
+        buttonRow1.add(btnFinalize);
+        buttonRow1.add(Box.createRigidArea(new Dimension(8,0)));
+        buttonRow1.add(btnPrint);
+        buttonRow1.add(Box.createHorizontalGlue());
+
+        // --- Button Row 2: Clear Order | Remove Item ---
+        JPanel buttonRow2 = new JPanel();
+        buttonRow2.setOpaque(false);
+        buttonRow2.setLayout(new BoxLayout(buttonRow2, BoxLayout.X_AXIS));
         btnClear = createStyledButton("Clear Order", COLOR_ACCENT_WARN, new Dimension(buttonWidth, buttonHeight));
         btnDeleteRow = createStyledButton("Remove Item", COLOR_ACCENT_WARN, new Dimension(buttonWidth, buttonHeight));
+        buttonRow2.add(Box.createHorizontalGlue());
+        buttonRow2.add(btnClear);
+        buttonRow2.add(Box.createRigidArea(new Dimension(8,0)));
+        buttonRow2.add(btnDeleteRow);
+        buttonRow2.add(Box.createHorizontalGlue());
 
-        actionsGrid.add(btnFinalize);
-        actionsGrid.add(btnPrint);
-        actionsGrid.add(btnShowHistory);
-        actionsGrid.add(btnClear);
-        actionsGrid.add(btnDeleteRow);
-        actionsGrid.add(new JLabel()); // empty cell for grid symmetry
-
-        summaryAndActionsPanel.add(actionsGrid, BorderLayout.NORTH);
-
-        // --- Summary Fields: horizontal row with fields (labels above) ---
+        // --- Summary Fields stacked vertically, full width ---
         JPanel summaryFieldsPanel = new JPanel();
+        summaryFieldsPanel.setLayout(new BoxLayout(summaryFieldsPanel, BoxLayout.Y_AXIS));
         summaryFieldsPanel.setOpaque(false);
-        summaryFieldsPanel.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridy = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weighty = 1.0;
-        gbc.insets = new Insets(0, 6, 0, 6);
 
-        txtTotal = createSummaryFieldWithLabel("Grand Total", summaryFieldWidth, summaryFieldHeight);
-        txtTotal.setEditable(false);
+        txtTotal = createSummaryFieldWithLabel("Grand Total", summaryFieldWidth, summaryFieldHeight); txtTotal.setEditable(false);
         txtPay = createSummaryFieldWithLabel("Payment", summaryFieldWidth, summaryFieldHeight);
-        txtBalance = createSummaryFieldWithLabel("Change", summaryFieldWidth, summaryFieldHeight);
-        txtBalance.setEditable(false);
+        txtBalance = createSummaryFieldWithLabel("Change", summaryFieldWidth, summaryFieldHeight); txtBalance.setEditable(false);
 
-        gbc.gridx = 0;
-        summaryFieldsPanel.add(wrapSummaryField(txtTotal, "Grand Total"), gbc);
-        gbc.gridx = 1;
-        summaryFieldsPanel.add(wrapSummaryField(txtPay, "Payment"), gbc);
-        gbc.gridx = 2;
-        summaryFieldsPanel.add(wrapSummaryField(txtBalance, "Change"), gbc);
+        summaryFieldsPanel.add(wrapSummaryField(txtTotal, "Grand Total"));
+        summaryFieldsPanel.add(Box.createVerticalStrut(8));
+        summaryFieldsPanel.add(wrapSummaryField(txtPay, "Payment"));
+        summaryFieldsPanel.add(Box.createVerticalStrut(8));
+        summaryFieldsPanel.add(wrapSummaryField(txtBalance, "Change"));
 
-        summaryAndActionsPanel.add(summaryFieldsPanel, BorderLayout.SOUTH);
+        // --- Add all to Summary Panel ---
+        summaryAndActionsPanel.add(Box.createVerticalStrut(6));
+        summaryAndActionsPanel.add(buttonRow1);
+        summaryAndActionsPanel.add(Box.createVerticalStrut(8));
+        summaryAndActionsPanel.add(buttonRow2);
+        summaryAndActionsPanel.add(Box.createVerticalStrut(14));
+        summaryAndActionsPanel.add(summaryFieldsPanel);
 
-        // --- Receipt Preview Panel (fills remaining height) ---
+        // === Receipt Preview Panel ===
         receiptArea = new JTextArea();
         receiptArea.setEditable(false);
         receiptArea.setFont(FONT_RECEIPT);
@@ -185,8 +191,16 @@ public class POSDesign {
         receiptScroll.setPreferredSize(new Dimension(summaryPanelWidth, 400));
         receiptScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
+        // === History Button Panel (below receipt preview) ===
+        JPanel historyButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 12));
+        historyButtonPanel.setBackground(COLOR_NAVY_DARK_BG); // match main bg for separation
+        btnShowHistory = createStyledButton("Show Transaction History", COLOR_CADET_BLUE_ACCENT, new Dimension(260, 38));
+        historyButtonPanel.add(btnShowHistory);
+
+        // Add to right section
         rightSectionPanel.add(summaryAndActionsPanel, BorderLayout.NORTH);
         rightSectionPanel.add(receiptScroll, BorderLayout.CENTER);
+        rightSectionPanel.add(historyButtonPanel, BorderLayout.SOUTH);
 
         // --- Suggestion List Popup for Product Name ---
         searchListModel = new DefaultListModel<>();
@@ -351,7 +365,6 @@ public class POSDesign {
                 btn.setText("▲");
                 return btn;
             }
-
             protected Component createPreviousButton() {
                 JButton btn = (JButton) super.createPreviousButton();
                 btn.setBackground(COLOR_STEEL_BLUE_PANEL);
@@ -382,23 +395,18 @@ public class POSDesign {
 
         DefaultTableCellRenderer renderer = new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent (JTable table, Object value,boolean isSelected,
-            boolean hasFocus, int row, int column){
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                                                           boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 c.setBackground(isSelected ? COLOR_CADET_BLUE_ACCENT : COLOR_INPUT_BG);
-                if (isSelected) {
-                    c.setForeground(COLOR_NAVY_DARK_BG);
-                } else {
-                    c.setForeground(COLOR_TEXT_LIGHT);
-                }
+                c.setForeground(isSelected ? COLOR_NAVY_DARK_BG : COLOR_TEXT_LIGHT);
                 setBorder(new EmptyBorder(5, 8, 5, 8));
                 return c;
             }
-        } ;
+        };
         jTable.setDefaultRenderer(Object.class, renderer);
         return jTable;
     }
-
 
     private void styleStyledScrollPane(JScrollPane scrollPane) {
         scrollPane.setBorder(BorderFactory.createLineBorder(COLOR_BORDER_SUBTLE, 1));
