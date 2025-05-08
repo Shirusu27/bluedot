@@ -22,12 +22,10 @@ public class InventoryManagement {
     private JLabel imageLabel, totalAccessoryLabel, totalFirearmLabel, totalAmmunitionLabel;
     private File selectedImageFile = null;
     private DefaultTableModel tableModel;
-    private Connection conn;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
 
     public InventoryManagement() {
         initialize();
-        connectToDatabase();
         createImageDirectory();
         loadTableData("", "", "", "");
 
@@ -220,23 +218,7 @@ public class InventoryManagement {
         loadTableData("", "", "", "");
         updateCategoryTotals();
     }
-    public void reconnect(String dbUrl) {
-        try {
-            if (conn != null && !conn.isClosed()) conn.close();
-        } catch (Exception ignore) {}
-        DatabaseConnection.setUrl(dbUrl);
-        connectToDatabase();
-        loadTableData("", "", "", "");
-    }
 
-
-    private void connectToDatabase() {
-        try {
-            conn = DatabaseConnection.connect();
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(mainPanel, "Database connect failed!", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
 
 
     private void applyFilters() {
@@ -247,7 +229,7 @@ public class InventoryManagement {
     }
 
     private void loadTableData(String category, String keyword, String fromDate, String toDate) {
-        try {
+        try (Connection conn = DatabaseConnection.connect()) {
             String sql = "SELECT * FROM Item WHERE 1=1";
             if (!category.isEmpty()) sql += " AND Category=?";
             if (!keyword.isEmpty()) sql += " AND (Model LIKE ? OR Category LIKE ? OR ID LIKE ?)";
@@ -298,7 +280,8 @@ public class InventoryManagement {
     }
 
     private void updateCategoryTotals() {
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection conn = DatabaseConnection.connect();
+             Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery("SELECT Category, SUM(Quantity_in_Stock) AS TotalQty FROM Item GROUP BY Category");
             totalAccessoryLabel.setText("Accessories: 0");
             totalFirearmLabel.setText("Firearm: 0");
@@ -338,7 +321,7 @@ public class InventoryManagement {
     }
 
     private void insertItem() {
-        try {
+        try (Connection conn = DatabaseConnection.connect()) {
             String imageFilename = null;
             if (selectedImageFile != null) {
                 imageFilename = System.currentTimeMillis() + "_" + selectedImageFile.getName();
@@ -363,7 +346,7 @@ public class InventoryManagement {
     }
 
     private void updateItem() {
-        try {
+        try (Connection conn = DatabaseConnection.connect()){
             String imageFilename = null;
             if (selectedImageFile != null) {
                 imageFilename = System.currentTimeMillis() + "_" + selectedImageFile.getName();
@@ -392,23 +375,26 @@ public class InventoryManagement {
         }
     }
 
+
     private void deleteItem() {
-        try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM Item WHERE ID=?")) {
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement stmt = conn.prepareStatement("DELETE FROM Item WHERE ID=?")) {
             stmt.setInt(1, Integer.parseInt(itemIDField.getText()));
             stmt.executeUpdate();
             loadTableData("", "", "", "");
             clearFields();
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(mainPanel, "Delete error!", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(mainPanel, "Delete error! " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
+
 
     public JPanel getMainPanel() {
         return mainPanel;
     }
 
     public static void main(String[] args) {
-        String defaultDbUrl = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
         JFrame frame = new JFrame("Inventory Management");
         ImageIcon icon = new ImageIcon("bluedotlogotrans.png"); // Adjust the path if needed
         frame.setIconImage(icon.getImage());

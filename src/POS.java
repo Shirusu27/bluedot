@@ -16,7 +16,8 @@ public class POS {
 
     private POSDesign design;
     private String lastReceiptText = "";
-    private InventoryManagement inventoryManagement;
+    public InventoryManagement inventoryManagement;
+    public Dashboard dashboard;
 
     public POS() {
         design = new POSDesign();
@@ -845,9 +846,11 @@ public class POS {
                 // If query succeeds, switch!
                 DatabaseConnection.setUrl(newDbUrl);
 
-                // If you have inventoryManagement instance
-                if (inventoryManagement != null)
-                    inventoryManagement.reconnect(newDbUrl);
+                // Refresh InventoryManagement so it picks up the new DB
+                if (inventoryManagement != null) {
+                    inventoryManagement.refreshTable();
+                    dashboard.refreshAllDashboardData();// or other method to reload data from DB
+                }
 
                 JOptionPane.showMessageDialog(getMainPanel(),
                         "Switched to database:\n" + chosenFile.getAbsolutePath(),

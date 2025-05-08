@@ -1,10 +1,10 @@
 import java.sql.Connection;
-
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseConnection {
-    private static String url = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
+    // Default path points to the project directory (not src!)
+    private static String url = "jdbc:ucanaccess://bluedotDatabase.accdb";
 
     public static void setUrl(String newUrl) {
         url = newUrl;

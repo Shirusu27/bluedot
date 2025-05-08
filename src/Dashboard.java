@@ -24,7 +24,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class Dashboard {
-    private Connection conn;
+   // private Connection conn;
     private DashboardDesign ui;
 
     private InventoryManagement inventoryManagement;
@@ -36,7 +36,6 @@ public class Dashboard {
     private int selectedYear = Calendar.getInstance().get(Calendar.YEAR);
 
     public Dashboard() {
-        connectToDatabase();
         ui = new DashboardDesign();
 
         inventoryManagement = new InventoryManagement();
@@ -85,23 +84,11 @@ public class Dashboard {
         });
     }
 
-    private void refreshAllDashboardData() {
+    public void refreshAllDashboardData() {
         refreshInventorySummary(); // Loads stats and creates/refreshes charts
         refreshTopSellingPanel();  // Loads top selling items
     }
 
-
-    private void connectToDatabase() {
-        try {
-            String url = "jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb";
-            conn = DriverManager.getConnection(url);
-            System.out.println("Database connected successfully!");
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(null, "Failed to connect to database: " + e.getMessage(), "Database Connection Error", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
-            System.exit(1);
-        }
-    }
 
     private void switchCard(String cardName) {
         CardLayout cl = (CardLayout) ui.mainPanel.getLayout();
@@ -120,9 +107,9 @@ public class Dashboard {
 
 
     private int getItemCountByCategory(String category) {
-        if (conn == null) return 0;
         String sql =  "SELECT SUM(Quantity_in_Stock) FROM Item WHERE Category = ?" ;
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, category);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
@@ -133,6 +120,7 @@ public class Dashboard {
         }
         return 0;
     }
+
 
     private JPanel createChartPanel() {
         JPanel panel = new JPanel(new GridLayout(1, 2, 15, 15));
@@ -218,10 +206,11 @@ public class Dashboard {
 
         // --- Pie Chart (Inventory Distribution) ---
         DefaultPieDataset pieDataset = new DefaultPieDataset();
-        if (conn != null) {
+
             String pieSql = "SELECT Category, SUM(Quantity_in_Stock) as Total FROM Item GROUP BY Category";
-            try (Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery(pieSql)) {
+        try (Connection conn = DatabaseConnection.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(pieSql)) {
                 while (rs.next()) {
                     String category = rs.getString("Category");
                     int total = rs.getInt("Total" );
@@ -232,7 +221,7 @@ public class Dashboard {
             } catch (SQLException e) {
                 System.err.println("Error loading inventory pie chart data: " + e.getMessage());
             }
-        }
+
 
         JFreeChart pieChart = ChartFactory.createPieChart(
                 "Inventory Distribution", pieDataset, true, true, false);
@@ -278,7 +267,7 @@ public class Dashboard {
     }
 
     private void refreshChartData(TimeSeries firearmSeries, TimeSeries ammoSeries, TimeSeries accessorySeries, int year) {
-        if (conn == null) return;
+
 
         firearmSeries.clear();
         ammoSeries.clear();
@@ -300,7 +289,8 @@ public class Dashboard {
                 "GROUP BY Month(s.Date), i.Category " + // CORRECTED HERE
                 "ORDER BY SaleMonth, i.Category";
 
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, year);
             ResultSet rs = stmt.executeQuery();
 
@@ -343,13 +333,13 @@ public class Dashboard {
             }
         };
 
-        if (conn != null) {
             String sql = "SELECT TOP 5 i.Model, SUM(s.Quantity) AS TotalSold, i.Category " +
                     "FROM Sales s " +
                     "INNER JOIN Item i ON s.Product_ID = i.ID " +
                     "GROUP BY i.Model, i.Category " +
                     "ORDER BY TotalSold DESC";
-            try (Statement stmt = conn.createStatement();
+        try (Connection conn = DatabaseConnection.connect();
+             Statement stmt = conn.createStatement();
                  ResultSet rs = stmt.executeQuery(sql)) {
                 int rank = 1;
                 while (rs.next()) {
@@ -363,7 +353,7 @@ public class Dashboard {
             } catch (SQLException e) {
                 System.err.println("Error loading top selling items: " + e.getMessage());
             }
-        }
+
 
         JTable topItemsTable = new JTable(model);
         styleTopItemsTable(topItemsTable);
