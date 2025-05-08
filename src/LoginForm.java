@@ -12,6 +12,8 @@ public class LoginForm {
 
     public LoginForm() {
         frame = new JFrame("Login");
+        ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
+        frame.setIconImage(icon.getImage());
         frame.setSize(400, 250);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(null);
