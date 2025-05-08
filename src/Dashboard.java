@@ -1,4 +1,3 @@
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -40,6 +39,8 @@ public class Dashboard {
         updateDashboardStats();
         refreshInventorySummary();
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
+        frame.setIconImage(icon.getImage());
     }
 
     private void connectToDatabase() {
@@ -100,8 +101,6 @@ public class Dashboard {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(1200, 700);
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(new Color(245, 245, 245));  // Light gray background
-
 
         createSidebar();
         createDashboard();
@@ -111,8 +110,6 @@ public class Dashboard {
         POS pos = new POS();
 
         mainPanel = new JPanel(new CardLayout());
-        mainPanel.setBackground(new Color(245, 245, 245));  // Light gray background
-
         mainPanel.add(dashboardPanel, "Dashboard");
         mainPanel.add(inventoryPanel, "Inventory");
         mainPanel.add(pos.getMainPanel(), "Sales");
@@ -161,7 +158,7 @@ public class Dashboard {
         salesButton.setBackground(new Color(30, 144, 255));
         salesButton.setForeground(Color.WHITE);
 
-        logoutButton.setBackground(new Color(255, 69, 0));  // Optional: make logout button a different color (like red)
+        logoutButton.setBackground(new Color(30, 144, 255));
         logoutButton.setForeground(Color.WHITE);
 
         buttonsPanel.add(dashboardButton);
@@ -189,12 +186,9 @@ public class Dashboard {
 
     private void createDashboard() {
         dashboardPanel = new JPanel(new BorderLayout());
-        dashboardPanel.setBackground(new Color(245, 245, 245));  // Light gray background
-
 
         // Top Stat Panel
         topPanel = new JPanel(new GridLayout(1, 3, 10, 10));
-        topPanel.setBackground(new Color(245, 245, 245));  // Light gray background
         topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         firearmLabel = new JLabel("...");
         ammunitionLabel = new JLabel("...");
@@ -232,8 +226,11 @@ public class Dashboard {
             refreshChart(seriesFirearms, seriesAmmunition, seriesAccessory, selectedYear);
         });
 
-        JPanel filterPanel = new JPanel();
-        filterPanel.add(new JLabel("Select Year:"));
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEADING, 30, 10));
+        filterPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        filterPanel.add(new JLabel("Select Year For Monthly Revenue:"));
+        filterPanel.setFont(new Font("Arial", Font.BOLD, 16));
         filterPanel.add(yearComboBox);
 
         JPanel chartWrapper = new JPanel(new BorderLayout());
@@ -245,8 +242,6 @@ public class Dashboard {
 
         // Content
         contentPanel = new JPanel(new BorderLayout());
-        contentPanel.setBackground(new Color(245, 245, 245));  // Light gray background
-
         contentPanel.add(topSellingPanel, BorderLayout.NORTH);
         contentPanel.add(chartWrapper, BorderLayout.CENTER);
 
@@ -265,7 +260,7 @@ public class Dashboard {
 
     private static final Color FIREARM_COLOR = new Color(255, 99, 71);  // Red (for Firearm)
     private static final Color AMMUNITION_COLOR = new Color(70, 130, 180); // Blue (for Ammunition)
-    private static final Color ACCESSORY_COLOR = new Color(034, 139, 34);  // Green (for Accessory)
+    private static final Color ACCESSORY_COLOR = new Color(34, 139, 34);  // Green (for Accessory)
 
     private JPanel createStatPanel(String title, JLabel valueLabel) {
         JPanel panel = new JPanel(new BorderLayout());
@@ -424,18 +419,21 @@ public class Dashboard {
     }
 
     private JPanel createItemCard(String itemName, String sold, Color cardColor) {
-        JPanel panel = new JPanel(new GridLayout(2, 1));
-        panel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-
-        // Set the background color of the panel based on the category
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setPreferredSize(new Dimension(200, 100));  // Bigger cards
+        panel.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
         panel.setBackground(cardColor);
 
-        panel.add(new JLabel(itemName, SwingConstants.CENTER));
+        JLabel nameLabel = new JLabel(itemName, SwingConstants.CENTER);
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        nameLabel.setForeground(Color.BLACK);
 
         JLabel soldLabel = new JLabel(sold, SwingConstants.CENTER);
         soldLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(soldLabel);
+        soldLabel.setForeground(Color.BLACK);
 
+        panel.add(nameLabel, BorderLayout.CENTER);
+        panel.add(soldLabel, BorderLayout.SOUTH);
         return panel;
     }
 
@@ -450,5 +448,4 @@ public class Dashboard {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Dashboard::new);
     }
-
 }
