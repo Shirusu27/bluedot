@@ -98,11 +98,11 @@ public class Dashboard {
 
         sidebar = new JPanel();
         sidebar.setLayout(new BorderLayout());
-        sidebar.setBackground(new Color(80, 80, 80));
+        sidebar.setBackground(new Color(0x001F3F));
         sidebar.setPreferredSize(new Dimension(200, frame.getHeight()));
 
         JPanel logoPanel = new JPanel(new BorderLayout());
-        logoPanel.setBackground(new Color(80, 80, 80));
+        logoPanel.setBackground(new Color(255,255,255));
 
         ImageIcon logoIcon = new ImageIcon("bluedotlogotrans.png");
         Image img = logoIcon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
@@ -110,11 +110,12 @@ public class Dashboard {
         companyLogo.setHorizontalAlignment(SwingConstants.CENTER);
 
         companyName = new JLabel("BLUEDOT", SwingConstants.CENTER);
-        companyName.setForeground(Color.WHITE);
+
+        companyName.setForeground(Color.BLACK);
         companyName.setFont(new Font("Arial", Font.BOLD, 18));
 
         JPanel namePanel = new JPanel();
-        namePanel.setBackground(new Color(80, 80, 80));
+        namePanel.setBackground(new Color(255,255,255));
         namePanel.setLayout(new BorderLayout());
         namePanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
         namePanel.add(companyName, BorderLayout.CENTER);
@@ -123,7 +124,8 @@ public class Dashboard {
         logoPanel.add(namePanel, BorderLayout.CENTER);
 
         JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        buttonsPanel.setBackground(new Color(80, 80, 80));
+        buttonsPanel.setBackground(new Color(16, 48, 80)); // Steel blue
+        buttonsPanel.setForeground(new Color(0xE0E7EF));
 
         dashboardButton = createSidebarButton("Dashboard");
         itemsButton = createSidebarButton("Inventory");
@@ -222,7 +224,7 @@ public class Dashboard {
     private JButton createSidebarButton(String text) {
         JButton button = new JButton(text);
         button.setFont(new Font("Arial", Font.BOLD, 14));
-        button.setBackground(new Color(0, 102, 204));
+        button.setBackground(new Color(0x6A, 0x9A, 0xB0));
         button.setForeground(Color.WHITE);
         button.setFocusPainted(false);
         button.setPreferredSize(new Dimension(180, 45));
