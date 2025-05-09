@@ -2,17 +2,40 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.*;
 import java.nio.file.Files;
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Vector;
 
 import com.toedter.calendar.JDateChooser;
 import javax.imageio.ImageIO;
+import javax.swing.text.JTextComponent;
 
 public class InventoryManagement {
+    // --- Color Palette (From POSDesign) ---
+    public static final Color COLOR_NAVY_DARK_BG = new Color(0x00, 0x1F, 0x3F);
+    public static final Color COLOR_STEEL_BLUE_PANEL = new Color(0x3A, 0x6D, 0x8C);
+    public static final Color COLOR_CADET_BLUE_ACCENT = new Color(0x6A, 0x9A, 0xB0);
+    public static final Color COLOR_LIGHT_BLUE_HOVER = new Color(0x8A, 0xB8, 0xC8);
+    public static final Color COLOR_TEXT_LIGHT = new Color(0xE0, 0xE7, 0xEF);
+    public static final Color COLOR_BORDER_SUBTLE = new Color(0x2C, 0x50, 0x6F);
+    public static final Color COLOR_INPUT_BG = new Color(0x10, 0x30, 0x50);
+    public static final Color COLOR_ACCENT_FIREARM = new Color(0xD9, 0x53, 0x4F); // Using POSDesign accent warn color for firearm
+    public static final Color COLOR_ACCENT_AMMO = new Color(0x5C, 0xB8, 0x5C);    // Using POSDesign accent success for ammo
+    public static final Color COLOR_ACCENT_ACCESSORY = new Color(0x6A, 0x9A, 0xB0); // Using cadet blue accent for accessory
+    public static final Color COLOR_TABLE_GRID = new Color(0x2C, 0x50, 0x6F);
+
+    // --- Fonts ---
+    public static final Font FONT_COMPANY_NAME = new Font("Segoe UI", Font.BOLD, 20);
+    public static final Font FONT_LABEL = new Font("Segoe UI", Font.BOLD, 16);
+    public static final Font FONT_VALUE = new Font("Segoe UI", Font.BOLD, 28);
+    public static final Font FONT_SIDEBAR_BUTTON = new Font("Segoe UI", Font.BOLD, 15);
+    public static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 14);
+    public static final Font FONT_TABLE_CELL = new Font("Segoe UI", Font.PLAIN, 13);
+
     private JPanel mainPanel;
     private JTable itemTable;
     private JButton insertButton, editButton, removeButton, clearButton, searchButton, chooseFileButton;
@@ -74,11 +97,14 @@ public class InventoryManagement {
     private void initialize() {
         mainPanel = new JPanel(new BorderLayout(15, 15));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        mainPanel.setBackground(COLOR_NAVY_DARK_BG);
 
         JLabel titleLabel = new JLabel("📦 Inventory Management", JLabel.CENTER);
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        titleLabel.setForeground(COLOR_TEXT_LIGHT);
 
         JPanel inputPanel = new JPanel(new GridBagLayout());
+        inputPanel.setBackground(COLOR_STEEL_BLUE_PANEL);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.anchor = GridBagConstraints.WEST;
@@ -88,18 +114,22 @@ public class InventoryManagement {
                 new JLabel("Date Stored:"), new JLabel("Price:"), new JLabel("Quantity:")
         };
 
-        itemIDField = new JTextField(15);
-        categoryField = new JTextField(15);
-        modelField = new JTextField(15);
-        priceField = new JTextField(15);
-        quantityField = new JTextField(15);
+        itemIDField = createStyledTextField();
+        categoryField = createStyledTextField();
+        modelField = createStyledTextField();
+        priceField = createStyledTextField();
+        quantityField = createStyledTextField();
+
         dateChooser = new JDateChooser();
         dateChooser.setDateFormatString("MM/dd/yyyy");
         dateChooser.setPreferredSize(new Dimension(150, 25));
+        styleDateChooser(dateChooser);
 
         JTextField[] fields = { itemIDField, categoryField, modelField, priceField, quantityField };
         int fieldIndex = 0;
         for (int i = 0; i < labels.length; i++) {
+            labels[i].setForeground(COLOR_TEXT_LIGHT);
+            labels[i].setFont(FONT_LABEL);
             gbc.gridx = 0;
             gbc.gridy = i;
             inputPanel.add(labels[i], gbc);
@@ -108,15 +138,17 @@ public class InventoryManagement {
             else inputPanel.add(fields[fieldIndex++], gbc);
         }
 
-        chooseFileButton = createStyledButton("Choose Image", new Color(50, 150, 150));
+        chooseFileButton = createStyledButton("Choose Image", new Color(60, 150, 150));
         gbc.gridy++;
         inputPanel.add(chooseFileButton, gbc);
+
         imageLabel = new JLabel();
         imageLabel.setPreferredSize(new Dimension(80, 80));
-        imageLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        imageLabel.setBorder(BorderFactory.createLineBorder(COLOR_BORDER_SUBTLE));
         gbc.gridy++;
         inputPanel.add(imageLabel, gbc);
-        clearButton = createStyledButton("Clear", new Color(100, 100, 100));
+
+        clearButton = createStyledButton("Clear", COLOR_ACCENT_FIREARM);
         gbc.gridy++;
         inputPanel.add(clearButton, gbc);
 
@@ -131,55 +163,91 @@ public class InventoryManagement {
 
         itemTable = new JTable(tableModel);
         itemTable.setRowHeight(80);
-        itemTable.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        itemTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+        itemTable.setFont(FONT_TABLE_CELL);
+        itemTable.getTableHeader().setFont(FONT_TABLE_HEADER);
+        itemTable.setBackground(COLOR_INPUT_BG);
+        itemTable.setForeground(COLOR_TEXT_LIGHT);
+        itemTable.setGridColor(COLOR_BORDER_SUBTLE);
+        itemTable.setSelectionBackground(COLOR_CADET_BLUE_ACCENT);
+        itemTable.setSelectionForeground(COLOR_NAVY_DARK_BG);
+        itemTable.getTableHeader().setBackground(COLOR_STEEL_BLUE_PANEL);
+        itemTable.getTableHeader().setForeground(COLOR_TEXT_LIGHT);
+        itemTable.getTableHeader().setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0,0,1,0, COLOR_BORDER_SUBTLE),
+                BorderFactory.createEmptyBorder(10,8,10,8)
+        ));
+
         JScrollPane tableScrollPane = new JScrollPane(itemTable);
+        styleStyledScrollPane(tableScrollPane);
 
         JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.setOpaque(false);
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        searchField = new JTextField(15);
+        searchPanel.setBackground(COLOR_STEEL_BLUE_PANEL);
+        searchField = createStyledTextField();
+
         filterFromDate = new JDateChooser();
         filterFromDate.setDateFormatString("MM/dd/yyyy");
+        filterFromDate.setPreferredSize(new Dimension(120, 25));
+        styleDateChooser(filterFromDate);
+
         filterToDate = new JDateChooser();
         filterToDate.setDateFormatString("MM/dd/yyyy");
-        searchButton = createStyledButton("Search", new Color(100, 100, 255));
-        restoreButton = createStyledButton("Restore", new Color(150, 100, 0));
+        filterToDate.setPreferredSize(new Dimension(120, 25));
+        styleDateChooser(filterToDate);
 
-        searchPanel.add(new JLabel("Search: "));
+        searchButton = createStyledButton("Search", COLOR_CADET_BLUE_ACCENT);
+        restoreButton = createStyledButton("Restore", COLOR_ACCENT_FIREARM);
+
+        JLabel searchLabel = new JLabel("Search: ");
+        searchLabel.setForeground(COLOR_TEXT_LIGHT);
+        JLabel fromLabel = new JLabel("From: ");
+        fromLabel.setForeground(COLOR_TEXT_LIGHT);
+        JLabel toLabel = new JLabel("To: ");
+        toLabel.setForeground(COLOR_TEXT_LIGHT);
+
+        searchPanel.add(searchLabel);
         searchPanel.add(searchField);
-        searchPanel.add(new JLabel("From: "));
+        searchPanel.add(fromLabel);
         searchPanel.add(filterFromDate);
-        searchPanel.add(new JLabel("To: "));
+        searchPanel.add(toLabel);
         searchPanel.add(filterToDate);
         searchPanel.add(searchButton);
         searchPanel.add(restoreButton);
 
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        filterAllBtn = createStyledButton("All", Color.GRAY);
-        filterFirearmBtn = createStyledButton("Firearm", new Color(255, 99, 71));
-        filterAmmoBtn = createStyledButton("Ammunition", new Color(70, 130, 180));
-        filterAccessoryBtn = createStyledButton("Accessory", new Color(34, 139, 34));
+        filterPanel.setBackground(COLOR_STEEL_BLUE_PANEL);
+        filterAllBtn = createStyledButton("All", COLOR_BORDER_SUBTLE);
+        filterFirearmBtn = createStyledButton("Firearm", COLOR_ACCENT_FIREARM);
+        filterAmmoBtn = createStyledButton("Ammunition", COLOR_ACCENT_AMMO);
+        filterAccessoryBtn = createStyledButton("Accessory", COLOR_ACCENT_ACCESSORY);
+
         filterPanel.add(filterAllBtn);
         filterPanel.add(filterFirearmBtn);
         filterPanel.add(filterAmmoBtn);
         filterPanel.add(filterAccessoryBtn);
 
         JPanel summaryPanel = new JPanel(new GridLayout(1, 3, 10, 10));
+        summaryPanel.setBackground(COLOR_STEEL_BLUE_PANEL);
         totalAccessoryLabel = new JLabel("Accessories: 0", JLabel.CENTER);
         totalFirearmLabel = new JLabel("Firearms: 0", JLabel.CENTER);
         totalAmmunitionLabel = new JLabel("Ammunition: 0", JLabel.CENTER);
         Font summaryFont = new Font("Segoe UI", Font.BOLD, 16);
         totalAccessoryLabel.setFont(summaryFont);
+        totalAccessoryLabel.setForeground(COLOR_TEXT_LIGHT);
         totalFirearmLabel.setFont(summaryFont);
+        totalFirearmLabel.setForeground(COLOR_TEXT_LIGHT);
         totalAmmunitionLabel.setFont(summaryFont);
+        totalAmmunitionLabel.setForeground(COLOR_TEXT_LIGHT);
         summaryPanel.add(totalAccessoryLabel);
         summaryPanel.add(totalFirearmLabel);
         summaryPanel.add(totalAmmunitionLabel);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        insertButton = createStyledButton("Add", new Color(0, 102, 255));
-        editButton = createStyledButton("Update", new Color(0, 153, 0));
-        removeButton = createStyledButton("Delete", Color.RED);
+        buttonPanel.setBackground(COLOR_STEEL_BLUE_PANEL);
+        insertButton = createStyledButton("Add", COLOR_CADET_BLUE_ACCENT);
+        editButton = createStyledButton("Update", COLOR_ACCENT_AMMO);
+        removeButton = createStyledButton("Delete", COLOR_ACCENT_FIREARM);
         buttonPanel.add(insertButton);
         buttonPanel.add(editButton);
         buttonPanel.add(removeButton);
@@ -193,6 +261,45 @@ public class InventoryManagement {
         mainPanel.add(tableScrollPane, BorderLayout.CENTER);
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
         mainPanel.add(topPanel, BorderLayout.PAGE_START);
+    }
+
+    private void styleDateChooser(JDateChooser chooser) {
+        JFormattedTextField dateEditor = chooser.getDateEditor().getUiComponent() instanceof JFormattedTextField
+                ? (JFormattedTextField) chooser.getDateEditor().getUiComponent() : null;
+        if (dateEditor != null) {
+            dateEditor.setBackground(COLOR_INPUT_BG);
+            dateEditor.setForeground(COLOR_TEXT_LIGHT); // White text color
+            dateEditor.setCaretColor(COLOR_CADET_BLUE_ACCENT);
+            dateEditor.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(COLOR_BORDER_SUBTLE, 1),
+                    BorderFactory.createEmptyBorder(5, 8, 5, 8)
+            ));
+            dateEditor.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            dateEditor.setOpaque(true);
+
+            // Add property change listener to ensure foreground remains white after date selection
+            chooser.addPropertyChangeListener("date", new PropertyChangeListener() {
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    SwingUtilities.invokeLater(() -> {
+                        dateEditor.setForeground(COLOR_TEXT_LIGHT);
+                        dateEditor.repaint();
+                    });
+                }
+            });
+        }
+        chooser.setBackground(COLOR_INPUT_BG);
+
+        // Style calendar popup button
+        Component[] comps = chooser.getComponents();
+        for (Component c : comps) {
+            if (c instanceof JButton) {
+                JButton btn = (JButton) c;
+                btn.setBackground(COLOR_STEEL_BLUE_PANEL);
+                btn.setForeground(COLOR_TEXT_LIGHT); // White button text
+                btn.setBorder(BorderFactory.createLineBorder(COLOR_BORDER_SUBTLE));
+            }
+        }
     }
 
     private void createImageDirectory() {
@@ -218,8 +325,6 @@ public class InventoryManagement {
         loadTableData("", "", "", "");
         updateCategoryTotals();
     }
-
-
 
     private void applyFilters() {
         String keyword = searchField.getText().trim();
@@ -284,7 +389,7 @@ public class InventoryManagement {
              Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery("SELECT Category, SUM(Quantity_in_Stock) AS TotalQty FROM Item GROUP BY Category");
             totalAccessoryLabel.setText("Accessories: 0");
-            totalFirearmLabel.setText("Firearm: 0");
+            totalFirearmLabel.setText("Firearms: 0");
             totalAmmunitionLabel.setText("Ammunition: 0");
             while (rs.next()) {
                 String cat = rs.getString("Category");
@@ -303,10 +408,102 @@ public class InventoryManagement {
     private JButton createStyledButton(String text, Color color) {
         JButton button = new JButton(text);
         button.setBackground(color);
-        button.setForeground(Color.WHITE);
+        button.setForeground(COLOR_TEXT_LIGHT);
         button.setFont(new Font("Segoe UI", Font.BOLD, 14));
         button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        Color hoverColor = COLOR_LIGHT_BLUE_HOVER;
+        if (color.equals(COLOR_ACCENT_FIREARM))
+            hoverColor = color.brighter();
+        else if (color.equals(COLOR_ACCENT_AMMO) || color.equals(COLOR_ACCENT_ACCESSORY))
+            hoverColor = color.brighter();
+
+        Color pressedColor = color.darker();
+
+        Color finalHoverColor = hoverColor;
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                button.setBackground(finalHoverColor);
+            }
+
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                button.setBackground(color);
+            }
+
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                button.setBackground(pressedColor);
+            }
+
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                if (button.getBounds().contains(evt.getPoint())) button.setBackground(finalHoverColor);
+                else button.setBackground(color);
+            }
+        });
         return button;
+    }
+
+    private JTextField createStyledTextField() {
+        JTextField textField = new JTextField(15);
+        textField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        textField.setBackground(COLOR_INPUT_BG);
+        textField.setForeground(COLOR_TEXT_LIGHT);
+        textField.setCaretColor(COLOR_CADET_BLUE_ACCENT);
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDER_SUBTLE, 1),
+                BorderFactory.createEmptyBorder(5, 8, 5, 8)));
+        return textField;
+    }
+
+    private void styleStyledScrollPane(JScrollPane scrollPane) {
+        scrollPane.setBorder(BorderFactory.createLineBorder(COLOR_BORDER_SUBTLE, 1));
+        scrollPane.getViewport().setBackground(COLOR_INPUT_BG);
+        scrollPane.setBackground(COLOR_INPUT_BG);
+
+        JScrollBar verticalScrollBar = scrollPane.getVerticalScrollBar();
+        verticalScrollBar.setBackground(COLOR_STEEL_BLUE_PANEL);
+        verticalScrollBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = COLOR_CADET_BLUE_ACCENT;
+                this.trackColor = COLOR_STEEL_BLUE_PANEL;
+                this.thumbDarkShadowColor = this.thumbColor.darker();
+                this.thumbHighlightColor = this.thumbColor.brighter();
+            }
+            @Override
+            protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }
+            @Override
+            protected JButton createIncreaseButton(int orientation) { return createZeroButton(); }
+            private JButton createZeroButton() {
+                JButton jbutton = new JButton();
+                jbutton.setPreferredSize(new Dimension(0, 0));
+                jbutton.setMinimumSize(new Dimension(0, 0));
+                jbutton.setMaximumSize(new Dimension(0, 0));
+                return jbutton;
+            }
+        });
+
+        JScrollBar horizontalScrollBar = scrollPane.getHorizontalScrollBar();
+        horizontalScrollBar.setBackground(COLOR_STEEL_BLUE_PANEL);
+        horizontalScrollBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = COLOR_CADET_BLUE_ACCENT;
+                this.trackColor = COLOR_STEEL_BLUE_PANEL;
+            }
+            @Override
+            protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }
+            @Override
+            protected JButton createIncreaseButton(int orientation) { return createZeroButton(); }
+            private JButton createZeroButton() {
+                JButton jbutton = new JButton();
+                jbutton.setPreferredSize(new Dimension(0, 0));
+                jbutton.setMinimumSize(new Dimension(0, 0));
+                jbutton.setMaximumSize(new Dimension(0, 0));
+                return jbutton;
+            }
+        });
     }
 
     private void clearFields() {
@@ -375,7 +572,6 @@ public class InventoryManagement {
         }
     }
 
-
     private void deleteItem() {
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement stmt = conn.prepareStatement("DELETE FROM Item WHERE ID=?")) {
@@ -387,8 +583,6 @@ public class InventoryManagement {
             JOptionPane.showMessageDialog(mainPanel, "Delete error! " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-
-
 
     public JPanel getMainPanel() {
         return mainPanel;
@@ -405,5 +599,3 @@ public class InventoryManagement {
         frame.setVisible(true);
     }
 }
-
-
