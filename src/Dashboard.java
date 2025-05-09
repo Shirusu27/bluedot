@@ -24,7 +24,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class Dashboard {
-   // private Connection conn;
+    // private Connection conn;
     private DashboardDesign ui;
 
     private InventoryManagement inventoryManagement;
@@ -56,11 +56,71 @@ public class Dashboard {
 
         refreshAllDashboardData(); // Initial data load
 
+        ui.loginHistoryButton.addActionListener(e -> {
+            loadLoginHistory();
+            switchCard("Login History");
+        });
+
+        ui.mainPanel.add(ui.loginHistoryPanel, "Login History");
+
         ui.frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
         ui.frame.setIconImage(icon.getImage());
         ui.frame.setVisible(true);
     }
+
+    private void loadLoginHistory() {
+        ui.loginHistoryPanel.removeAll();
+
+        // Create table model and JTable
+        DefaultTableModel model = new DefaultTableModel(new Object[]{"Username", "Login Time", "Status"}, 0);
+        JTable loginHistoryTable = new JTable(model);
+        loginHistoryTable.setBackground(DashboardDesign.COLOR_INPUT_BG);
+        loginHistoryTable.setForeground(DashboardDesign.COLOR_TEXT_LIGHT);
+        loginHistoryTable.setGridColor(DashboardDesign.COLOR_BORDER_SUBTLE);
+        loginHistoryTable.setRowHeight(35);
+        loginHistoryTable.setSelectionBackground(DashboardDesign.COLOR_CADET_BLUE_ACCENT);
+        loginHistoryTable.setSelectionForeground(DashboardDesign.COLOR_NAVY_DARK_BG);
+
+        // Optional: style header if desired
+        JTableHeader header = loginHistoryTable.getTableHeader();
+        header.setFont(DashboardDesign.FONT_TABLE_HEADER_LARGE);
+        header.setBackground(DashboardDesign.COLOR_STEEL_BLUE_PANEL);
+        header.setForeground(DashboardDesign.COLOR_TEXT_LIGHT);
+
+        JScrollPane scrollPane = new JScrollPane(loginHistoryTable);
+        scrollPane.setBackground(DashboardDesign.COLOR_NAVY_DARK_BG);
+        scrollPane.getViewport().setBackground(DashboardDesign.COLOR_NAVY_DARK_BG);
+
+        ui.loginHistoryPanel.add(scrollPane, BorderLayout.CENTER);
+
+        // Load data from database
+        try (Connection conn = DatabaseConnection.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT username, login_time, status FROM login_history ORDER BY login_time DESC")) {
+
+            while (rs.next()) {
+                String username = rs.getString("username");
+                java.sql.Timestamp timestamp = rs.getTimestamp("login_time");
+                String status = rs.getString("status");
+
+                String formattedTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(timestamp);
+
+                model.addRow(new Object[]{username, formattedTime, status});
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(ui.frame, "Failed to load login history:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        ui.loginHistoryPanel.revalidate();
+        ui.loginHistoryPanel.repaint();
+    }
+
+    private void switchCard(String cardName) {
+        CardLayout cl = (CardLayout) ui.mainPanel.getLayout();
+        cl.show(ui.mainPanel, cardName);
+    }
+
 
     private void setupEventListeners() {
         ui.dashboardButton.addActionListener(e -> {
@@ -89,11 +149,6 @@ public class Dashboard {
         refreshTopSellingPanel();  // Loads top selling items
     }
 
-
-    private void switchCard(String cardName) {
-        CardLayout cl = (CardLayout) ui.mainPanel.getLayout();
-        cl.show(ui.mainPanel, cardName);
-    }
     private void refreshInventorySummary() {
         // Potential lines around 136 where NPE could occur if ui.component is null:
         ui.firearmLabel.setText(String.valueOf(getItemCountByCategory("Firearm")));
@@ -207,20 +262,20 @@ public class Dashboard {
         // --- Pie Chart (Inventory Distribution) ---
         DefaultPieDataset pieDataset = new DefaultPieDataset();
 
-            String pieSql = "SELECT Category, SUM(Quantity_in_Stock) as Total FROM Item GROUP BY Category";
+        String pieSql = "SELECT Category, SUM(Quantity_in_Stock) as Total FROM Item GROUP BY Category";
         try (Connection conn = DatabaseConnection.connect();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(pieSql)) {
-                while (rs.next()) {
-                    String category = rs.getString("Category");
-                    int total = rs.getInt("Total" );
-                    if (category != null && total > 0) {
-                        pieDataset.setValue(category, total);
-                    }
+            while (rs.next()) {
+                String category = rs.getString("Category");
+                int total = rs.getInt("Total" );
+                if (category != null && total > 0) {
+                    pieDataset.setValue(category, total);
                 }
-            } catch (SQLException e) {
-                System.err.println("Error loading inventory pie chart data: " + e.getMessage());
             }
+        } catch (SQLException e) {
+            System.err.println("Error loading inventory pie chart data: " + e.getMessage());
+        }
 
 
         JFreeChart pieChart = ChartFactory.createPieChart(
@@ -333,26 +388,26 @@ public class Dashboard {
             }
         };
 
-            String sql = "SELECT TOP 5 i.Model, SUM(s.Quantity) AS TotalSold, i.Category " +
-                    "FROM Sales s " +
-                    "INNER JOIN Item i ON s.Product_ID = i.ID " +
-                    "GROUP BY i.Model, i.Category " +
-                    "ORDER BY TotalSold DESC";
+        String sql = "SELECT TOP 5 i.Model, SUM(s.Quantity) AS TotalSold, i.Category " +
+                "FROM Sales s " +
+                "INNER JOIN Item i ON s.Product_ID = i.ID " +
+                "GROUP BY i.Model, i.Category " +
+                "ORDER BY TotalSold DESC";
         try (Connection conn = DatabaseConnection.connect();
              Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
-                int rank = 1;
-                while (rs.next()) {
-                    model.addRow(new Object[]{
-                            rank++,
-                            rs.getString("Model"),
-                            rs.getString("Category"),
-                            rs.getInt("TotalSold")
-                    });
-                }
-            } catch (SQLException e) {
-                System.err.println("Error loading top selling items: " + e.getMessage());
+             ResultSet rs = stmt.executeQuery(sql)) {
+            int rank = 1;
+            while (rs.next()) {
+                model.addRow(new Object[]{
+                        rank++,
+                        rs.getString("Model"),
+                        rs.getString("Category"),
+                        rs.getInt("TotalSold")
+                });
             }
+        } catch (SQLException e) {
+            System.err.println("Error loading top selling items: " + e.getMessage());
+        }
 
 
         JTable topItemsTable = new JTable(model);
@@ -456,4 +511,3 @@ public class Dashboard {
         SwingUtilities.invokeLater(Dashboard::new);
     }
 }
-

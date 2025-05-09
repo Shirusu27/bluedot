@@ -81,7 +81,16 @@ public class LoginForm {
             stmt.setString(2, password);
             ResultSet rs = stmt.executeQuery();
 
-            if (rs.next()) {
+            boolean success = rs.next();
+
+            String logQuery = "INSERT INTO login_history (username, login_time, status) VALUES (?, ?, ?)";
+            PreparedStatement logStmt = conn.prepareStatement(logQuery);
+            logStmt.setString(1, username);
+            logStmt.setTimestamp(2, new java.sql.Timestamp(System.currentTimeMillis()));
+            logStmt.setString(3, success ? "Success" : "Failed");
+            logStmt.executeUpdate();
+
+            if (success) {
                 JOptionPane.showMessageDialog(frame, "Login Successful!");
                 frame.dispose();
                 SwingUtilities.invokeLater(Dashboard::new);

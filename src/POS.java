@@ -20,8 +20,8 @@ public class POS {
     public Dashboard dashboard;
 
     public POS() {
-        design = new POSDesign();
 
+        design = new POSDesign();
         // Product Name live search (KeyListener)
         design.txtProductName.addKeyListener(new KeyAdapter() {
             @Override
@@ -269,18 +269,26 @@ public class POS {
         JDialog historyDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(getMainPanel()), "Transaction History", true);
         historyDialog.setSize(1000, 600);
         historyDialog.setLocationRelativeTo(getMainPanel());
-        historyDialog.getContentPane().setBackground(Color.WHITE);
+        historyDialog.getContentPane().setBackground(POSDesign.COLOR_NAVY_DARK_BG); // Set dialog background color
 
+        // Create JScrollPane for history table
         JScrollPane historyScroll = new JScrollPane(design.historyTable);
         historyScroll.setBorder(BorderFactory.createLineBorder(new Color(255, 193, 7), 2, true));
+        historyScroll.setBackground(POSDesign.COLOR_NAVY_DARK_BG); // Set scroll pane background
+        historyScroll.getViewport().setBackground(POSDesign.COLOR_NAVY_DARK_BG); // Set viewport background
 
+        // Set the history table background and foreground colors
+        design.historyTable.setBackground(POSDesign.COLOR_NAVY_DARK_BG);
+        design.historyTable.setForeground(POSDesign.COLOR_TEXT_LIGHT);
+
+        // Create filter panel
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        filterPanel.setBackground(Color.WHITE);
+        filterPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL); // Set filter panel background color
 
         JLabel lblFrom = new JLabel("From:");
-        lblFrom.setForeground(new Color(33, 150, 243));
+        lblFrom.setForeground(POSDesign.COLOR_TEXT_LIGHT);
         JLabel lblTo = new JLabel("To:");
-        lblTo.setForeground(new Color(33, 150, 243));
+        lblTo.setForeground(POSDesign.COLOR_TEXT_LIGHT);
 
         JButton btnFilter = new JButton("Filter");
         btnFilter.setBackground(new Color(76, 175, 80));
@@ -299,6 +307,7 @@ public class POS {
         filterPanel.add(btnFilter);
         filterPanel.add(btnReset);
 
+        // Add clear, export, and import buttons
         if (design.btnClearSalesHistory == null) {
             design.btnClearSalesHistory = new JButton("Clear Sales History");
             design.btnExportSales = new JButton("Export Sales DB");
@@ -313,14 +322,10 @@ public class POS {
         }
 
         JPanel dbPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        dbPanel.setBackground(Color.WHITE);
+        dbPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL); // Set background color
         dbPanel.add(design.btnClearSalesHistory);
         dbPanel.add(design.btnExportSales);
         dbPanel.add(design.btnImportSales);
-
-        design.btnClearSalesHistory.addActionListener(e -> clearSalesHistory());
-        design.btnExportSales.addActionListener(e -> exportDatabase());
-        design.btnImportSales.addActionListener(e -> importDatabase());
 
         Box verticalBox = Box.createVerticalBox();
         verticalBox.add(filterPanel);
@@ -335,7 +340,7 @@ public class POS {
         closeButton.setForeground(Color.WHITE);
         closeButton.addActionListener(e -> historyDialog.dispose());
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setBackground(Color.WHITE);
+        buttonPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL); // Set button panel background color
         buttonPanel.add(closeButton);
         historyDialog.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -427,7 +432,6 @@ public class POS {
     private void printBill(String receiptText) {
         PrinterJob job = PrinterJob.getPrinterJob();
         job.setJobName("POS Receipt");
-
         job.setPrintable((graphics, pageFormat, pageIndex) -> {
             if (pageIndex > 0) return Printable.NO_SUCH_PAGE;
             Graphics2D g2d = (Graphics2D) graphics;
@@ -438,6 +442,7 @@ public class POS {
                 g2d.drawString(line, 0, y);
                 y += g2d.getFontMetrics().getHeight();
             }
+
             return Printable.PAGE_EXISTS;
         });
 
@@ -871,15 +876,18 @@ public class POS {
     // Make sure all database access uses DatabaseConnection.connect() for consistency.
 
     public JPanel getMainPanel() {
+
         return design.getMainPanel();
     }
 
     public static void main(String[] args) {
         // Set DB URL before app starts
-        DatabaseConnection.setUrl("jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb");
+        DatabaseConnection.setUrl("jdbc:ucanaccess://C://Files//bluedot//bluedotDatabase.accdb");
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Bluedot POS");
             POS posPanel = new POS();
+            ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
+            frame.setIconImage(icon.getImage());
             frame.setContentPane(posPanel.getMainPanel());
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(1300, 800);
