@@ -4,7 +4,7 @@ import java.sql.SQLException;
 
 public class DatabaseConnection {
     // Default path points to the project directory (not src!)
-    private static String url = "jdbc:ucanaccess://bluedotDatabase.accdb";
+    private static String url = "jdbc:ucanaccess://C://Files//bluedot3//bluedotDatabase.accdb";
 
     public static void setUrl(String newUrl) {
         url = newUrl;

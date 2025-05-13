@@ -12,6 +12,8 @@ public class RegisterForm {
 
     public RegisterForm() {
         frame = new JFrame("Register");
+        ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
+        frame.setIconImage(icon.getImage());
         frame.setSize(400, 300);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(null);

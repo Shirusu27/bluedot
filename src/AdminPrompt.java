@@ -55,7 +55,6 @@ public class AdminPrompt {
 
             if (rs.next()) {
                 JOptionPane.showMessageDialog(frame, "Access Granted!");
-
                 frame.dispose();
                 if (onSuccess != null) {
                     onSuccess.run(); // ✅ Run the success callback

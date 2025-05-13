@@ -10,15 +10,15 @@ import java.awt.*;
 public class POSDesign {
 
     // --- Color Palette ---
-    private static final Color COLOR_NAVY_DARK_BG = new Color(0x00, 0x1F, 0x3F);
-    private static final Color COLOR_STEEL_BLUE_PANEL = new Color(0x3A, 0x6D, 0x8C);
-    private static final Color COLOR_CADET_BLUE_ACCENT = new Color(0x6A, 0x9A, 0xB0);
-    private static final Color COLOR_LIGHT_BLUE_HOVER = new Color(0x8A, 0xB8, 0xC8);
-    private static final Color COLOR_TEXT_LIGHT = new Color(0xE0, 0xE7, 0xEF);
-    private static final Color COLOR_BORDER_SUBTLE = new Color(0x2C, 0x50, 0x6F);
-    private static final Color COLOR_INPUT_BG = new Color(0x10, 0x30, 0x50);
-    private static final Color COLOR_ACCENT_WARN = new Color(0xD9, 0x53, 0x4F);
-    private static final Color COLOR_ACCENT_SUCCESS = new Color(0x5C, 0xB8, 0x5C);
+    public static final Color COLOR_NAVY_DARK_BG = new Color(0x00, 0x1F, 0x3F);
+    public static final Color COLOR_STEEL_BLUE_PANEL = new Color(0x3A, 0x6D, 0x8C);
+    public static final Color COLOR_CADET_BLUE_ACCENT = new Color(0x6A, 0x9A, 0xB0);
+    public static final Color COLOR_LIGHT_BLUE_HOVER = new Color(0x8A, 0xB8, 0xC8);
+    public static final Color COLOR_TEXT_LIGHT = new Color(0xE0, 0xE7, 0xEF);
+    public static final Color COLOR_BORDER_SUBTLE = new Color(0x2C, 0x50, 0x6F);
+    public static final Color COLOR_INPUT_BG = new Color(0x10, 0x30, 0x50);
+    public static final Color COLOR_ACCENT_WARN = new Color(0xD9, 0x53, 0x4F);
+    public static final Color COLOR_ACCENT_SUCCESS = new Color(0x5C, 0xB8, 0x5C);
 
     // --- Fonts ---
     private static final Font FONT_PRIMARY_BOLD = new Font("Segoe UI", Font.BOLD, 14);
@@ -134,7 +134,7 @@ public class POSDesign {
         btnPrint = createStyledButton("Print Receipt", COLOR_CADET_BLUE_ACCENT, new Dimension(buttonWidth, buttonHeight));
         buttonRow1.add(Box.createHorizontalGlue());
         buttonRow1.add(btnFinalize);
-        buttonRow1.add(Box.createRigidArea(new Dimension(8,0)));
+        buttonRow1.add(Box.createRigidArea(new Dimension(8, 0)));
         buttonRow1.add(btnPrint);
         buttonRow1.add(Box.createHorizontalGlue());
 
@@ -146,7 +146,7 @@ public class POSDesign {
         btnDeleteRow = createStyledButton("Remove Item", COLOR_ACCENT_WARN, new Dimension(buttonWidth, buttonHeight));
         buttonRow2.add(Box.createHorizontalGlue());
         buttonRow2.add(btnClear);
-        buttonRow2.add(Box.createRigidArea(new Dimension(8,0)));
+        buttonRow2.add(Box.createRigidArea(new Dimension(8, 0)));
         buttonRow2.add(btnDeleteRow);
         buttonRow2.add(Box.createHorizontalGlue());
 
@@ -155,9 +155,11 @@ public class POSDesign {
         summaryFieldsPanel.setLayout(new BoxLayout(summaryFieldsPanel, BoxLayout.Y_AXIS));
         summaryFieldsPanel.setOpaque(false);
 
-        txtTotal = createSummaryFieldWithLabel("Grand Total", summaryFieldWidth, summaryFieldHeight); txtTotal.setEditable(false);
+        txtTotal = createSummaryFieldWithLabel("Grand Total", summaryFieldWidth, summaryFieldHeight);
+        txtTotal.setEditable(false);
         txtPay = createSummaryFieldWithLabel("Payment", summaryFieldWidth, summaryFieldHeight);
-        txtBalance = createSummaryFieldWithLabel("Change", summaryFieldWidth, summaryFieldHeight); txtBalance.setEditable(false);
+        txtBalance = createSummaryFieldWithLabel("Change", summaryFieldWidth, summaryFieldHeight);
+        txtBalance.setEditable(false);
 
         summaryFieldsPanel.add(wrapSummaryField(txtTotal, "Grand Total"));
         summaryFieldsPanel.add(Box.createVerticalStrut(8));
@@ -191,7 +193,6 @@ public class POSDesign {
         receiptScroll.setPreferredSize(new Dimension(summaryPanelWidth, 400));
         receiptScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        // === History Button Panel (below receipt preview) ===
         JPanel historyButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 12));
         historyButtonPanel.setBackground(COLOR_NAVY_DARK_BG); // match main bg for separation
         btnShowHistory = createStyledButton("Show Transaction History", COLOR_CADET_BLUE_ACCENT, new Dimension(260, 38));
@@ -220,7 +221,6 @@ public class POSDesign {
         searchPopupMenu.setBorder(BorderFactory.createLineBorder(COLOR_CADET_BLUE_ACCENT, 1));
         searchPopupMenu.add(listScrollPane);
 
-        // --- History Table (for popup dialog) ---
         historyTableModel = new DefaultTableModel(
                 new Object[]{"Transaction ID", "Product Code", "Product Name", "Category", "Qty", "Unit Price", "Total", "Date"}, 0
         ) {
@@ -231,14 +231,20 @@ public class POSDesign {
         historyTable = styleStyledTable(new JTable(historyTableModel));
         historyTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         historyTable.setRowHeight(35);
-
+        historyTable.setBackground(COLOR_NAVY_DARK_BG);
+        historyTable.setForeground(COLOR_TEXT_LIGHT);
         int[] historyWidths = {120, 120, 220, 130, 80, 120, 120, 150};
         for (int i = 0; i < historyWidths.length; i++) {
             historyTable.getColumnModel().getColumn(i).setPreferredWidth(historyWidths[i]);
             historyTable.getColumnModel().getColumn(i).setResizable(true);
         }
+        // Create JScrollPane for history table with matching background colors
+        JScrollPane historyScrollPane = new JScrollPane(historyTable);
+        historyScrollPane.setBackground(COLOR_NAVY_DARK_BG);
+        historyScrollPane.getViewport().setBackground(COLOR_NAVY_DARK_BG);
+        styleStyledScrollPane(historyScrollPane);
 
-        dateFromSpinner = new JSpinner(new SpinnerDateModel());
+    dateFromSpinner = new JSpinner(new SpinnerDateModel());
         styleStyledSpinner(dateFromSpinner);
         JSpinner.DateEditor fromEditor = new JSpinner.DateEditor(dateFromSpinner, "MM/dd/yyyy");
         fromEditor.getTextField().setForeground(COLOR_TEXT_LIGHT);

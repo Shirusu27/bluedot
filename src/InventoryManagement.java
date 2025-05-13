@@ -12,7 +12,7 @@ import java.util.Date;
 
 import com.toedter.calendar.JDateChooser;
 import javax.imageio.ImageIO;
-import javax.swing.text.JTextComponent;
+import javax.swing.text.*;
 
 public class InventoryManagement {
     // --- Color Palette (From POSDesign) ---
@@ -51,6 +51,9 @@ public class InventoryManagement {
         initialize();
         createImageDirectory();
         loadTableData("", "", "", "");
+
+        ((AbstractDocument) priceField.getDocument()).setDocumentFilter(new NumericDocumentFilter());
+        ((AbstractDocument) quantityField.getDocument()).setDocumentFilter(new NumericDocumentFilter());
 
         insertButton.addActionListener(e -> insertItem());
         editButton.addActionListener(e -> updateItem());
@@ -93,6 +96,32 @@ public class InventoryManagement {
             }
         });
     }
+
+    // NumericDocumentFilter inner class to restrict document input to digits only
+    private static class NumericDocumentFilter extends DocumentFilter {
+        @Override
+        public void insertString(DocumentFilter.FilterBypass fb, int offset, String string, AttributeSet attr)
+                throws BadLocationException {
+            if (string == null) return;
+            if (isNumeric(string)) {
+                super.insertString(fb, offset, string, attr);
+            }
+        }
+
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
+                throws BadLocationException {
+            if (text == null) return;
+            if (isNumeric(text)) {
+                super.replace(fb, offset, length, text, attrs);
+            }
+        }
+
+        private boolean isNumeric(String text) {
+            return text.chars().allMatch(Character::isDigit);
+        }
+    }
+
 
     private void initialize() {
         mainPanel = new JPanel(new BorderLayout(15, 15));

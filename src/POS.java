@@ -1,5 +1,9 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.print.Printable;
@@ -21,6 +25,59 @@ public class POS {
 
     public POS() {
         design = new POSDesign();
+
+        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, 100, 1); // min=1, max=100, step=1
+        design.spinnerQty = new JSpinner(spinnerModel);
+
+        // Set a custom editor for the spinner
+        JSpinner.DefaultEditor editor = (JSpinner.DefaultEditor) design.spinnerQty.getEditor();
+        JTextField qtyField = editor.getTextField();
+
+        // Apply a DocumentFilter to restrict input to numbers only
+        ((AbstractDocument) qtyField.getDocument()).setDocumentFilter(new NumericDocumentFilter());
+        // Make payment field accept only numbers
+        ((AbstractDocument) design.txtPay.getDocument()).setDocumentFilter(new NumericDocumentFilter());
+
+        // Make quantity accept only numbers in spinner's editor
+        ((AbstractDocument) qtyField.getDocument()).setDocumentFilter(new NumericDocumentFilter());
+
+        // Make payment field accept only numbers
+        ((AbstractDocument) design.txtPay.getDocument()).setDocumentFilter(new NumericDocumentFilter());
+
+        // Remove dynamic balance update from txtPay key listener
+        // (or replace it with input validation only - no balance calculation here)
+        design.txtPay.getKeyListeners(); // Remove existing balance updater if any
+        design.txtPay.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                // Just validate input, do not update balance dynamically
+                String text = design.txtPay.getText();
+                if (!text.matches("\\d*(\\.\\d*)?")) {
+                    // Invalid input: remove last char
+                    SwingUtilities.invokeLater(() -> {
+                        String corrected = text.replaceAll("[^\\d.]", "");
+                        design.txtPay.setText(corrected);
+                    });
+                }
+            }
+        });
+
+        // Create a custom JSpinner editor that only allows numeric input
+        JTextField textField = editor.getTextField();
+        ((AbstractDocument) textField.getDocument()).setDocumentFilter(new DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                if (string == null || string.isEmpty()) return;
+                if (!string.matches("\\d+")) return; // Only allow digits
+                super.insertString(fb, offset, string, attr);
+            }
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String string, AttributeSet attr) throws BadLocationException {
+                if (string == null || string.isEmpty()) return;
+                if (!string.matches("\\d+")) return; // Only allow digits
+                super.replace(fb, offset, length, string, attr);
+            }
+        });
 
         // Product Name live search (KeyListener)
         design.txtProductName.addKeyListener(new KeyAdapter() {
@@ -199,7 +256,7 @@ public class POS {
         String name = design.txtProductName.getText().trim();
         String priceText = design.txtPrice.getText().trim();
 
-        if (design.tableModel.getRowCount() == 0) { // cart is empty before adding
+        if (design.tableModel.getRowCount() == 0) {
             design.receiptArea.setText("");
             lastReceiptText = "";
         }
@@ -219,6 +276,12 @@ public class POS {
 
         try {
             int qty = (int) design.spinnerQty.getValue();
+
+            if (qty <= 0) {
+                JOptionPane.showMessageDialog(getMainPanel(), "Quantity must be greater than zero.");
+                return;
+            }
+
             double price = Double.parseDouble(priceText);
             double total = qty * price;
 
@@ -230,8 +293,6 @@ public class POS {
                 if (rs.next()) {
                     category = rs.getString("Category");
                 }
-            } catch (SQLException ex2) {
-                ex2.printStackTrace();
             }
 
             design.tableModel.addRow(new Object[]{code, name, category, qty, price, total});
@@ -242,10 +303,11 @@ public class POS {
             design.spinnerQty.setValue(1);
             design.txtPrice.setText("");
             design.txtItemTotal.setText("");
-            design.spinnerQty.setValue(0);
 
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(getMainPanel(), "Invalid price input.");
+            JOptionPane.showMessageDialog(getMainPanel(), "Price is invalid.");
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(getMainPanel(), "DB error: " + ex.getMessage());
         }
     }
 
@@ -269,18 +331,29 @@ public class POS {
         JDialog historyDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(getMainPanel()), "Transaction History", true);
         historyDialog.setSize(1000, 600);
         historyDialog.setLocationRelativeTo(getMainPanel());
-        historyDialog.getContentPane().setBackground(Color.WHITE);
+        historyDialog.getContentPane().setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL);
 
         JScrollPane historyScroll = new JScrollPane(design.historyTable);
         historyScroll.setBorder(BorderFactory.createLineBorder(new Color(255, 193, 7), 2, true));
+        historyScroll.setBackground(POSDesign.COLOR_NAVY_DARK_BG); // Set scroll pane background
+        historyScroll.getViewport().setBackground(POSDesign.COLOR_NAVY_DARK_BG); // Set viewport background
 
+        // Set the history table background and foreground colors
+        design.historyTable.setBackground(POSDesign.COLOR_NAVY_DARK_BG);
+        design.historyTable.setForeground(POSDesign.COLOR_TEXT_LIGHT);
+
+        // Create filter panel
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        filterPanel.setBackground(Color.WHITE);
+        filterPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL);
+        filterPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL); // Set filter panel background color
 
         JLabel lblFrom = new JLabel("From:");
         lblFrom.setForeground(new Color(33, 150, 243));
+        lblFrom.setForeground(POSDesign.COLOR_TEXT_LIGHT);
+        lblFrom.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL);
         JLabel lblTo = new JLabel("To:");
         lblTo.setForeground(new Color(33, 150, 243));
+        lblTo.setForeground(POSDesign.COLOR_TEXT_LIGHT);
 
         JButton btnFilter = new JButton("Filter");
         btnFilter.setBackground(new Color(76, 175, 80));
@@ -313,7 +386,7 @@ public class POS {
         }
 
         JPanel dbPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        dbPanel.setBackground(Color.WHITE);
+        dbPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL);
         dbPanel.add(design.btnClearSalesHistory);
         dbPanel.add(design.btnExportSales);
         dbPanel.add(design.btnImportSales);
@@ -335,7 +408,7 @@ public class POS {
         closeButton.setForeground(Color.WHITE);
         closeButton.addActionListener(e -> historyDialog.dispose());
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setBackground(Color.WHITE);
+        buttonPanel.setBackground(POSDesign.COLOR_STEEL_BLUE_PANEL);
         buttonPanel.add(closeButton);
         historyDialog.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -578,18 +651,16 @@ public class POS {
         try {
             pay = Double.parseDouble(design.txtPay.getText().trim());
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(getMainPanel(),
-                    "Please enter a valid payment amount.",
-                    "Input Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(getMainPanel(), "Please enter a valid payment amount.", "Input Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
         if (pay < total) {
-            JOptionPane.showMessageDialog(getMainPanel(),
-                    "Insufficient payment. Please enter an amount equal to or greater than the total.",
-                    "Payment Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(getMainPanel(), "Insufficient payment. Please enter an amount equal to or greater than the total.", "Payment Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        design.txtBalance.setText(String.format("%.2f", pay - total));
+        double change = pay - total;
+        design.txtBalance.setText(String.format("%.2f", change));
+
 
         try (Connection conn = DatabaseConnection.connect()) {
             conn.setAutoCommit(false);
@@ -699,6 +770,30 @@ public class POS {
             return;
         }
     }
+
+    private static class NumericDocumentFilter extends DocumentFilter {
+        @Override
+        public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr)
+                throws BadLocationException {
+            if (string == null) return;
+            if (isValidInput(string)) {
+                super.insertString(fb, offset, string, attr);
+            }
+        }
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
+                throws BadLocationException {
+            if (text == null) return;
+            if (isValidInput(text)) {
+                super.replace(fb, offset, length, text, attrs);
+            }
+        }
+        private boolean isValidInput(String text) {
+            // Allow digits only
+            return text.matches("\\d*");
+        }
+    }
+
 
     private void clearSalesHistory() {
         // Ask for admin password
@@ -876,9 +971,11 @@ public class POS {
 
     public static void main(String[] args) {
         // Set DB URL before app starts
-        DatabaseConnection.setUrl("jdbc:ucanaccess://C://Users//ADMIN//IdeaProjects//bluedot//bluedotDatabase.accdb");
+        DatabaseConnection.setUrl("jdbc:ucanaccess://C://Files//bluedot3//bluedotDatabase.accdb");
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Bluedot POS");
+            ImageIcon icon = new ImageIcon("bluedotlogotrans.png");
+            frame.setIconImage(icon.getImage());
             POS posPanel = new POS();
             frame.setContentPane(posPanel.getMainPanel());
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

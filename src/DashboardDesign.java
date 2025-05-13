@@ -45,6 +45,8 @@ public class DashboardDesign {
     public JComboBox<Integer> yearComboBox;
     public JPanel topSellingPanel;
     public JPanel contentPanel;
+    public JButton loginHistoryButton;
+    public JPanel loginHistoryPanel;
 
     public DashboardDesign() {
         initializeFrame();
@@ -73,11 +75,15 @@ public class DashboardDesign {
 
         // --- Logo and company name Panel (White Background) ---
         JPanel logoPanel = new JPanel(new BorderLayout());
-        logoPanel.setBackground(Color.WHITE); // White background for this specific panel
+        logoPanel.setBackground(COLOR_NAVY_DARK_BG); // Match sidebar background
         logoPanel.setBorder(new EmptyBorder(15, 10, 15, 10));
 
-        ImageIcon logoIcon = new ImageIcon("bluedotlogotrans.png");
-        Image img = logoIcon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+        loginHistoryPanel = new JPanel(new BorderLayout());
+        loginHistoryPanel.setBackground(COLOR_NAVY_DARK_BG);
+        loginHistoryPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        ImageIcon logoIcon = new ImageIcon("bluedotnewlogo.png");
+        Image img = logoIcon.getImage().getScaledInstance(200, 200, Image.SCALE_SMOOTH);
         companyLogo = new JLabel(new ImageIcon(img), SwingConstants.CENTER);
 
         companyName = new JLabel("BLUEDOT", SwingConstants.CENTER);
@@ -94,11 +100,13 @@ public class DashboardDesign {
         dashboardButton = createSidebarButton("Dashboard");
         itemsButton = createSidebarButton("Inventory");
         salesButton = createSidebarButton("Sales");
+        loginHistoryButton = createSidebarButton("Login History");
         logoutButton = createSidebarButton("Logout");
 
         buttonsPanel.add(dashboardButton);
         buttonsPanel.add(itemsButton);
         buttonsPanel.add(salesButton);
+        buttonsPanel.add(loginHistoryButton);
         buttonsPanel.add(logoutButton);
 
         sidebar.add(logoPanel, BorderLayout.NORTH);
@@ -179,7 +187,6 @@ public class DashboardDesign {
                 topSellingTitle,
                 new EmptyBorder(5, 5, 5, 5)
         ));
-        topSellingPanel.setPreferredSize(new Dimension(0, 200));
 
         // --- Charts Wrapper (holds filter and chartHolderPanel) ---
         JPanel chartsWrapper = new JPanel(new BorderLayout());
